@@ -1,0 +1,35 @@
+const {assert} = require('chai')
+import test_vectors from './test_vectors__appendix_a.jsy'
+
+#IF PLAT_NODEJS
+  import cbor_u8_decode from 'cbor-codec/esm/cbor_decode.js'
+
+  function base64_to_u8(str_b64) ::
+    return Uint8Array.from @ Buffer.from(str_b64, 'base64')
+
+#ELIF PLAT_WEB
+  import cbor_u8_decode from 'cbor-codec/esm/web/cbor_decode.js'
+
+  const _charCodeAt = ''.charCodeAt
+  function base64_to_u8(str_b64) ::
+    const sz = atob @ str_b64.replace(/-/g, '+').replace(/_/g, '/')
+    const len = sz.length
+    const res = new Uint8Array(len)
+    for let i=0; i<len; i++ ::
+      res[i] = _charCodeAt.call(sz, i)
+    return res
+
+
+describe @ 'CBOR Decode Test Vectors', @=> ::
+  for const test of test_vectors ::
+
+    const it_fn = test.skip ? it.skip : test.only ? it.only : test.enabled ? it : it.skip
+    it_fn @ `cbor_u8_decode "${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, @=> ::
+      const u8 = base64_to_u8 @ test.cbor
+
+      const ans = cbor_u8_decode(u8)
+      if test.diagnostic ::
+        assert.ok @ false, 'TODO: diagnostic'
+      else ::
+        assert.deepEqual @ ans, test.decoded
+

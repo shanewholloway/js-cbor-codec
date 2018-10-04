@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "dependencies": {
+    "cbor-codec": "file:.."
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^5.2.0",
+    "rollup": "^0.66.3",
+    "rollup-plugin-commonjs": "^9.1.5",
+    "rollup-plugin-node-resolve": "^3.3.0"
+  },
+  "scripts": {
+    "prebuild": "test -d ./node_modules || npm -s install",
+    "build": "rollup --config",
+    "watch": "npm -s run build -- --watch",
+    "pretest": "npm -s run build",
+    "test": "npm -s run test:one",
+    "test:one": "mocha ./__unittest.cjs.js",
+    "test:min": "mocha --reporter=min ./__unittest.cjs.js"
+  }
+}
