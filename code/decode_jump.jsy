@@ -1,0 +1,314 @@
+#IF PLAT_NODEJS
+  const {URL} = require('url')
+
+export default decode_jump
+export function decode_jump(options, jmp) ::
+  jmp = jmp ? jmp.slice() : decode_basic_jump()
+
+  if null == options :: options = {}
+
+  if options.simple ::
+    const simple_value = bind_simple_dispatch(options.simple)
+    const tiny_simple = _cbor_tiny @ simple_value
+
+    for let i=0xe0; i<= 0xf3; i++ ::
+      jmp[i] = tiny_simple
+
+    jmp[0xf8] = _cbor_w1 @ simple_value
+
+
+  if options.tags ::
+    const as_tag = bind_tag_dispatch(options.tags)
+    const tiny_tag = _cbor_tiny @ as_tag
+
+    for let i=0xc0; i<= 0xd7; i++ ::
+      jmp[0xc0 | i] = tiny_tag
+
+    jmp[0xd8] = _cbor_w1 @ as_tag
+    jmp[0xd9] = _cbor_w2 @ as_tag
+    jmp[0xda] = _cbor_w4 @ as_tag
+    jmp[0xdb] = _cbor_w8 @ as_tag
+
+  return jmp
+
+
+export function decode_basic_jump() ::
+  const as_tag = bind_tag_dispatch @ basic_tags()
+
+  const tiny_pos_int = _cbor_tiny @ as_pos_int
+  const tiny_neg_int = _cbor_tiny @ as_neg_int
+  const tiny_bytes = _cbor_tiny @ as_bytes
+  const tiny_utf8 = _cbor_tiny @ as_utf8
+  const tiny_list = _cbor_tiny @ as_list
+  const tiny_map = _cbor_tiny @ as_map
+  const tiny_tag = _cbor_tiny @ as_tag
+  const tiny_simple_repr = _cbor_tiny @ simple_repr
+
+  const jmp = new Array(256)
+
+  for let i=0; i<= 23; i++ ::
+    jmp[0x00 | i] = tiny_pos_int
+    jmp[0x20 | i] = tiny_neg_int
+    jmp[0x40 | i] = tiny_bytes
+    jmp[0x60 | i] = tiny_utf8
+    jmp[0x80 | i] = tiny_list
+    jmp[0xa0 | i] = tiny_map
+    jmp[0xc0 | i] = tiny_tag
+    jmp[0xe0 | i] = tiny_simple_repr
+
+  const cbor_widths = @[] _cbor_w1, _cbor_w2, _cbor_w4, _cbor_w8
+  for let w=0; w< 4; w++ ::
+    const i = 24+w, width = cbor_widths[w]
+    jmp[0x00 | i] = width @ as_pos_int
+    jmp[0x20 | i] = width @ as_neg_int
+    jmp[0x40 | i] = width @ as_bytes
+    jmp[0x60 | i] = width @ as_utf8
+    jmp[0x80 | i] = width @ as_list
+    jmp[0xa0 | i] = width @ as_map
+    jmp[0xc0 | i] = width @ as_tag
+
+  // streaming data types
+  jmp[0x5f] = as_bytes_stream
+  jmp[0x7f] = as_utf8_stream
+  jmp[0x9f] = as_list_stream
+  jmp[0xbf] = as_map_stream
+
+  // semantic tag
+
+  // primitives
+  jmp[0xf4] = function() :: return false
+  jmp[0xf5] = function() :: return true
+  jmp[0xf6] = function() :: return null
+  jmp[0xf7] = function() :: // undefined
+  jmp[0xf8] = _cbor_w1 @ simple_repr
+  jmp[0xf9] = half_float
+  jmp[0xfa] = single_float
+  jmp[0xfb] = double_float
+  //jmp[0xfc] = undefined
+  //jmp[0xfd] = undefined
+  //jmp[0xfe] = undefined
+  jmp[0xff] = function () :: return cbor_break_sym
+
+  return jmp
+
+
+// special token
+export const cbor_break_sym = Symbol('cbor_break')
+
+// cbor size/value interpreters
+function _cbor_tiny(as_type) ::
+  return function (decoder, type_b) ::
+    return as_type(decoder, type_b & 0x1f)
+
+function _cbor_w1(as_type) ::
+  return function (decoder) ::
+    const idx = decoder.idx
+    decoder.idx = idx + 1
+    return as_type @ decoder,
+      decoder.dv.getUint8(idx)
+
+function _cbor_w2(as_type) ::
+  return function (decoder) ::
+    const idx = decoder.idx
+    decoder.idx = idx + 2
+    return as_type @ decoder,
+      decoder.dv.getUint16(idx)
+
+function _cbor_w4(as_type) ::
+  return function (decoder) ::
+    const idx = decoder.idx
+    decoder.idx = idx + 4
+    return as_type @ decoder,
+      decoder.dv.getUint32(idx)
+
+function _cbor_w8(as_type) ::
+  return function (decoder) ::
+    const idx = decoder.idx
+    decoder.idx = idx + 8
+
+    const v_hi = decoder.dv.getUint32(idx+0)
+    const v_lo = decoder.dv.getUint32(idx+4)
+    const u64 = v_lo + 0x100000000*v_hi
+    return as_type @ decoder, u64
+
+
+// basic types
+
+function as_pos_int(decoder, value) ::
+  return value
+
+function as_neg_int(decoder, value) ::
+  return -1 - value
+
+function as_bytes(decoder, len) ::
+  const {idx, u8} = decoder
+  decoder.idx = idx + len
+  return decoder.types.bytes @
+    u8.subarray(idx, idx + len)
+
+function as_utf8(decoder, len) ::
+  const {idx, u8} = decoder
+  decoder.idx = idx + len
+  return decoder.types.utf8 @
+    u8.subarray(idx, idx + len)
+
+function as_list(decoder, len) ::
+  if 0 === len ::
+    return decoder.types.empty_list()
+
+  const res = decoder.types.list(len)
+  for let i=0; i<len; i++ ::
+    res @ false, i, decoder.nextValue()
+  return res(true)
+
+function as_map(decoder, len) ::
+  if 0 === len ::
+    return decoder.types.empty_map()
+
+  const res = decoder.types.map(len)
+  for let i=0; i<len; i++ ::
+    const key = decoder.nextValue()
+    const value = decoder.nextValue()
+    res @ false, key, value
+  return res(true)
+
+
+// streaming
+
+function as_stream(decoder, accum) ::
+  let i = 0
+  while true ::
+    const value = decoder.nextValue()
+    if cbor_break_sym === value ::
+      return accum @ true
+    accum @ false, i++, value
+
+function as_pair_stream(decoder, accum) ::
+  while true ::
+    const key = decoder.nextValue()
+    if cbor_break_sym === key ::
+      return accum @ true
+    accum @ false, key, decoder.nextValue()
+
+function as_bytes_stream(decoder) ::
+  return as_stream @ decoder, decoder.types.bytes_stream(decoder)
+
+function as_utf8_stream(decoder) ::
+  return as_stream @ decoder, decoder.types.utf8_stream(decoder)
+
+function as_list_stream(decoder) ::
+  return as_stream @ decoder, decoder.types.list_stream(decoder)
+
+function as_map_stream(decoder) ::
+  return as_pair_stream @ decoder, decoder.types.map_stream(decoder)
+
+
+// primitives
+
+function half_float(decoder) ::
+  const {idx, u8} = decoder
+  decoder.idx = idx + 2
+  return decoder.types.half_float @
+    u8.subarray(idx, idx+2)
+
+function single_float(decoder) ::
+  const {idx, dv} = decoder
+  decoder.idx = idx + 4
+  return dv.getFloat32(idx)
+
+function double_float(decoder) ::
+  const {idx, dv} = decoder
+  decoder.idx = idx + 8
+  return dv.getFloat64(idx)
+
+
+// simple values
+
+function simple_repr(decoder, key) ::
+  return `simple(${key})`
+
+function bind_simple_dispatch(simple_lut) ::
+  if 'function' !== typeof simple_lut.get ::
+    throw new TypeError @ 'Expected a simple_value Map'
+
+  return function(decoder, key) ::
+    return simple_lut.get(key)
+
+
+// tag values
+
+function bind_tag_dispatch(tags_lut) ::
+  if 'function' !== typeof tags_lut.get ::
+    throw new TypeError @ 'Expected a tags Map'
+
+  return function(decoder, tag) ::
+    const tag_handler = tags_lut.get(tag)
+    if tag_handler ::
+      const res = tag_handler(decoder, tag)
+      const body = decoder.nextValue()
+      return undefined === res ? body : res(body)
+
+    return @{} tag, body: decoder.nextValue()
+
+
+function basic_tags() ::
+  // from https://tools.ietf.org/html/rfc7049#section-2.4
+
+  const tags_lut = new Map()
+
+  // Standard date/time string; see Section 2.4.1
+  tags_lut.set @ 0, () => ts_sz => new Date @ ts_sz
+  // Epoch-based date/time; see Section 2.4.1
+  tags_lut.set @ 1, () => seconds => new Date @ seconds * 1000
+
+  // Positive bignum; see Section 2.4.2
+  // tags_lut.set @ 2, () => v => v
+
+  // Negative bignum; see Section 2.4.2
+  // tags_lut.set @ 3, () => v => v
+
+  // Decimal fraction; see Section 2.4.3
+  // tags_lut.set @ 4, () => v => v
+
+  // Bigfloat; see Section 2.4.3
+  // tags_lut.set @ 5, () => v => v
+
+  // Expected conversion to base64url encoding; see Section 2.4.4.2
+  // tags_lut.set @ 21, () => v => v
+
+  // Expected conversion to base64 encoding; see Section 2.4.4.2
+  // tags_lut.set @ 22, () => v => v
+
+  // Expected conversion to base16 encoding; see Section 2.4.4.2
+  // tags_lut.set @ 23, () => v => v
+
+  // Encoded CBOR data item; see Section 2.4.4.1
+  tags_lut.set @ 24, decoder => u8 =>
+    u8 instanceof Uint8Array ? decoder.withDecodeCBOR(u8) : u8
+
+  // URI; see Section 2.4.4.3
+  tags_lut.set @ 32, () => url_sz => new URL(url_sz)
+
+  // base64url; see Section 2.4.4.3
+  //tags_lut.set @ 33, () => v => v
+
+  // base64; see Section 2.4.4.3
+  //tags_lut.set @ 34, () => v => v
+
+  // Regular expression; see Section 2.4.4.3
+  //tags_lut.set @ 35, () => v => v
+
+  // MIME message; see Section 2.4.4.3
+  //tags_lut.set @ 36, () => v => v
+
+  // Self-describe CBOR; see Section 2.4.5
+  tags_lut.set @ 55799, () => ::
+
+
+  // EXTENSIONS
+
+  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+  tags_lut.set @ 258, decoder => :: decoder.pushTypes('Set')
+
+  return tags_lut
+

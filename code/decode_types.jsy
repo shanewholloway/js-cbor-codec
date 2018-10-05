@@ -1,0 +1,98 @@
+import { u8_to_utf8, u8_concat } from './u8_utils.jsy'
+
+export const decode_types = @{}
+  __proto__: null
+
+  half_float(u8) :: return u8
+
+  bytes(u8) :: return u8
+  bytes_stream(decoder) ::
+    let res = []
+    return function (done, i, u8) ::
+      if done ::
+        const ans = u8_concat(res)
+        res = null
+        return ans
+
+      res.push(u8)
+
+  utf8(u8) :: return u8_to_utf8 @ u8
+  utf8_stream(decoder) ::
+    let res = []
+    return function (done, i, str) ::
+      if done ::
+        const ans = res.join('')
+        res = null
+        return ans
+
+      res.push(str)
+
+
+  empty_list() :: return []
+
+  list(decoder, len) ::
+    let res = 0 === len ? [] : new Array(len)
+    return function (done, i, v) ::
+      if done :: return res
+      res[i] = v
+
+  list_stream(decoder) ::
+    let res = []
+    return function (done, i, v) ::
+      if done :: return res
+      res.push(v)
+
+
+  empty_map() :: return {}
+
+  map(decoder) ::
+    let res = {}
+    return function (done, k, v) ::
+      if done :: return res
+      res[k] = v
+
+  map_stream(decoder) ::
+    let res = {}
+    return function (done, k, v) ::
+      if done :: return res
+      res[k] = v
+
+
+  Map: @{}
+    __proto__: null
+
+    empty_map() :: return new Map()
+
+    map(decoder) ::
+      let res = new Map()
+      return function (done, k, v) ::
+        if done :: return res
+        res.set(k, v)
+
+    map_stream(decoder) ::
+      let res = new Map()
+      return function (done, k, v) ::
+        if done :: return res
+        res.set(k, v)
+
+
+  Set: @{}
+    __proto__: null
+
+    empty_list() :: return new Set()
+
+    list(decoder) ::
+      let res = new Set()
+      return function (done, i, v) ::
+        if done :: return res
+        res.add(v)
+
+    list_stream(decoder) ::
+      let res = new Set()
+      return function (done, i, v) ::
+        if done :: return res
+        res.add(v)
+
+
+export default decode_types
+

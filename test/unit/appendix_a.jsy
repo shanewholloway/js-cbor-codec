@@ -1,6 +1,5 @@
 export default @[]
   @{}
-    enabled: true
     cbor: "AA=="
     hex: "00"
     roundtrip: true
@@ -67,9 +66,11 @@ export default @[]
     decoded: 18446744073709551615
 
   @{}
+    enabled: false
     cbor: "wkkBAAAAAAAAAAA="
     hex: "c249010000000000000000"
     roundtrip: true
+    diagnostic: "2(h\'010000000000000000\')"
     decoded: 18446744073709551616
 
   @{}
@@ -79,9 +80,11 @@ export default @[]
     decoded: -18446744073709551616
 
   @{}
+    enabled: false
     cbor: "w0kBAAAAAAAAAAA="
     hex: "c349010000000000000000"
     roundtrip: true
+    diagnostic: "3(h\'010000000000000000\')"
     decoded: -18446744073709551617
 
   @{}
@@ -376,9 +379,7 @@ export default @[]
     cbor: "gA=="
     hex: "80"
     roundtrip: true
-    decoded: [
-
-    ]
+    decoded: []
 
   @{}
     cbor: "gwECAw=="
@@ -414,7 +415,7 @@ export default @[]
     cbor: "ogECAwQ="
     hex: "a201020304"
     roundtrip: true
-    diagnostic: "{1: 2, 3: 4}"
+    decoded: {1: 2, 3: 4}
 
   @{}
     cbor: "omFhAWFiggID"

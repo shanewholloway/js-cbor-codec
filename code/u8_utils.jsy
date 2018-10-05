@@ -1,0 +1,6 @@
+#IF PLAT_NODEJS
+  export * from 'u8-utils/esm'
+
+#ELIF PLAT_WEB
+  export * from 'u8-utils/esm/web'
+

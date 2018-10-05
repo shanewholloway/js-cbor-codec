@@ -1,118 +1,93 @@
-export const cbor_u8_decode = cbor_bind_u8_decoder()
+import { as_u8_buffer } from './u8_utils.jsy'
+
+import decode_types from './decode_types.jsy'
+export * from './decode_types.jsy'
+
+import @{}
+  decode_jump,
+  decode_basic_jump,
+  cbor_break_sym,
+from './decode_jump.jsy'
+export * from './decode_jump.jsy'
+
+
 export default cbor_u8_decode
+export function cbor_u8_decode(u8, options) ::
+  return CBORDecoder.decode(u8)
 
-export function bind_cbor_u8_decode(jmp) ::
-  cbor_u8_decode.jmp = jmp
-  return cbor_u8_decode
 
-  function cbor_u8_decode(u8) ::
-    const disp = jmp[u8[0]]
-    console.log @# u8[0], disp
-    return disp(u8)
+export class CBORDecoderBasic ::
+  static create(u8) :: return new this(u8)
+  static decode(u8) :: return new this(u8).nextValue()
 
-export function cbor_bind_u8_decoder(options) ::
-  if null == options :: options = {}
+  static withDecodeCBOR(u8) ::
+    u8.decodeCBOR = @=> this.decode(u8)
+    return u8
+  withDecodeCBOR(u8) ::
+    return this.constructor.withDecodeCBOR(u8)
 
-  const simple_value = bind_simple_value(options.simple)
+  static options(options) ::
+    if ! options :: return this
 
-  const tiny_pos_int = _cbor_tiny @ as_pos_int
-  const tiny_neg_int = _cbor_tiny @ as_neg_int
-  const tiny_bytes = _cbor_tiny @ as_bytes
-  const tiny_utf8 = _cbor_tiny @ as_utf8
-  const tiny_array = _cbor_tiny @ as_array
-  const tiny_map = _cbor_tiny @ as_map
-  const tiny_tag = _cbor_tiny @ as_tag
-  const tiny_simple = _cbor_tiny @ simple_value
+    class CBORDecoder_ extends this ::
 
-  const jmp = []
+    const jmp = decode_jump @ options, this.jmp
+    CBORDecoder_.prototype.jmp = jmp
 
-  for let i=0; i<= 23; i++ ::
-    jmp[0x00 | i] = tiny_pos_int
-    jmp[0x20 | i] = tiny_neg_int
-    jmp[0x40 | i] = tiny_bytes
-    jmp[0x60 | i] = tiny_utf8
-    jmp[0x80 | i] = tiny_array
-    jmp[0xa0 | i] = tiny_map
-    jmp[0xc0 | i] = tiny_tag
-    jmp[0xe0 | i] = tiny_simple
+    if options.types ::
+      const types = Object.create(this.prototype.types)
+      CBORDecoder_.prototype.types = types
 
-  const cbor_widths = @[] _cbor_w1, _cbor_w2, _cbor_w4, _cbor_w8
-  for let w=0; w< 4; w++ ::
-    const i = 24+w, width = cbor_widths[w]
-    jmp[0x00 | i] = width @ as_pos_int
-    jmp[0x20 | i] = width @ as_neg_int
-    jmp[0x40 | i] = width @ as_bytes
-    jmp[0x60 | i] = width @ as_utf8
-    jmp[0x80 | i] = width @ as_array
-    jmp[0xa0 | i] = width @ as_map
-    jmp[0xc0 | i] = width @ as_tag
-    jmp[0xe0 | i] = width @ simple_value
+      Object.assign(types, options.types)
 
-  jmp[0x5f] = _cbor_stream @ as_bytes_stream
-  jmp[0x7f] = _cbor_stream @ as_utf8_stream
-  jmp[0x9f] = _cbor_stream @ as_array_stream
-  jmp[0xbf] = _cbor_stream @ as_map_stream
+    return CBORDecoder_
 
-  // semantic tag
+  constructor(u8) ::
+    u8 = as_u8_buffer(u8)
 
-  // primitives
-  jmp[0xf4] = bind_cbor_value(false)
-  jmp[0xf5] = bind_cbor_value(true)
-  jmp[0xf6] = bind_cbor_value(null)
-  jmp[0xf7] = bind_cbor_value(void 0)
-  jmp[0xf8] = _cbor_w1 @ simple_value
-  jmp[0xf9] = half_float
-  jmp[0xfa] = single_float
-  jmp[0xfb] = double_float
-  //jmp[0xfc] = undefined
-  //jmp[0xfd] = undefined
-  //jmp[0xfe] = undefined
-  jmp[0xff] = _cbor_break
+    Object.defineProperties @ this, @{}
+      u8: @{} value: u8
+      dv: @{} value: new DataView(u8.buffer)
 
-  return bind_cbor_u8_decode(jmp)
+    this.idx = 0
 
-export function _cbor_tiny(as_type) ::
-  return function () :: throw new Error @ 'TODO: _cbor_tiny'
-export function _cbor_w1() :: 
-  return function () :: throw new Error @ 'TODO: _cbor_w1'
-export function _cbor_w2() :: 
-  return function () :: throw new Error @ 'TODO: _cbor_w2'
-export function _cbor_w4() :: 
-  return function () :: throw new Error @ 'TODO: _cbor_w4'
-export function _cbor_w8() :: 
-  return function () :: throw new Error @ 'TODO: _cbor_w8'
-export function _cbor_stream() :: 
-  return function () :: throw new Error @ 'TODO: _cbor_stream'
+    const stack = []
+    this.typestack = stack
+    this.types = this.types
 
-function _cbor_break() ::
-  console.dir @: break: true
-  throw new Error @ 'TODO: break'
+    const jmp = this.jmp
+    this.next = @=> ::
+      const type_b = u8[ this.idx ++ ]
+      if undefined === type_b ::
+        return @{} done: true
 
-function bind_cbor_value(value) ::
-  return function() ::
-    console.dir @: value
-    throw new Error @ 'TODO: value'
+      if 0 !== stack.length ::
+        this.types = stack.pop()
 
-function half_float() ::
-  throw new Error @ 'TODO: half_float'
-function single_float() ::
-  throw new Error @ 'TODO: single_float'
-function double_float() ::
-  throw new Error @ 'TODO: double_float'
+      const decode = jmp[type_b] || this.decode_unknown
+      const value = decode(this, type_b)
+      return @{} done: cbor_break_sym === value, value
 
-function bind_simple_value(simple_lut) ::
-  return function() ::
-    throw new Error @ 'TODO: simple'
+  [Symbol.iterator]() :: return this
 
-function as_pos_int() :: throw new Error @ 'TODO: as_pos_int'
-function as_neg_int() :: throw new Error @ 'TODO: as_neg_int'
-function as_bytes() :: throw new Error @ 'TODO: as_bytes'
-function as_utf8() :: throw new Error @ 'TODO: as_utf8'
-function as_array() :: throw new Error @ 'TODO: as_array'
-function as_map() :: throw new Error @ 'TODO: as_map'
-function as_tag() :: throw new Error @ 'TODO: as_tag'
+  nextValue() ::
+    const {value, done} = this.next()
+    if done && cbor_break_sym !== value ::
+      throw new Error @ 'CBOR decode past the end of buffer'
+    return value
 
-function as_bytes_stream() :: throw new Error @ 'TODO: as_bytes_stream'
-function as_utf8_stream() :: throw new Error @ 'TODO: as_utf8_stream'
-function as_array_stream() :: throw new Error @ 'TODO: as_array_stream'
-function as_map_stream() :: throw new Error @ 'TODO: as_map_stream'
+  pushTypes(types) ::
+    if 'string' === typeof types ::
+      types = decode_types[types]
+
+    this.typestack.push(this.types, types)
+    this.types = types
+
+  decode_unknown(decoder, type_b) ::
+    throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
+
+
+CBORDecoderBasic.prototype.jmp = decode_basic_jump()
+CBORDecoderBasic.prototype.types = decode_types
+
+export const CBORDecoder = CBORDecoderBasic

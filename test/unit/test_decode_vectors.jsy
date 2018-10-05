@@ -1,0 +1,61 @@
+const { assert } = require('chai')
+import test_vectors from './appendix_a.jsy'
+
+import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
+import half_float from 'cbor-codec/esm/half_float.js'
+
+#IF PLAT_NODEJS
+  import { CBORDecoderBasic } from 'cbor-codec/esm/cbor_decode.js'
+
+#ELIF PLAT_WEB
+  import { CBORDecoderBasic } from 'cbor-codec/esm/web/cbor_decode.js'
+
+
+function tag_as_diagnostic(decoder, tag) ::
+  return v => `${tag}(${JSON.stringify(v)})`
+
+function tag_as_hex_diagnostic(decoder, tag) ::
+  return v => `${tag}(${v})`
+
+const testing_tags = new Map()
+testing_tags.set @ 0, tag_as_diagnostic // Standard date/time string
+testing_tags.set @ 1, tag_as_diagnostic // Epoch-based date/time
+testing_tags.set @ 2, tag_as_hex_diagnostic // Positive bignum
+testing_tags.set @ 3, tag_as_hex_diagnostic // Negative bignum
+testing_tags.set @ 23, tag_as_hex_diagnostic // Expected conversion to base16 encoding
+testing_tags.set @ 24, tag_as_hex_diagnostic // Encoded CBOR data item
+testing_tags.set @ 32, tag_as_diagnostic // URI
+
+
+const CBORDecoder = CBORDecoderBasic.options @:
+  tags: testing_tags
+  types: @{}
+    half_float
+    bytes(u8) :: return `h'${u8_to_hex(u8)}'`
+    bytes_stream(u8) ::
+      let res = []
+      return function (done, i, h_u8) ::
+        if done :: return `(_ ${res.join(', ')})`
+        res.push(h_u8)
+
+describe @ 'Decode CBOR Test Vectors', @=> ::
+  for const test of test_vectors ::
+
+    const it_fn = test.skip ? it.skip : test.only ? it.only : it
+    it_fn @ `"${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, @=> ::
+      const u8 = hex_to_u8 @ test.hex
+
+      const ans = CBORDecoder.decode(u8)
+      if test.diagnostic ::
+        try ::
+          assert.equal @ test.diagnostic, ans+''
+        catch err ::
+          console.log @# 'diag', test.diagnostic, ans
+          throw err
+      else ::
+        try ::
+          assert.deepEqual @ test.decoded, ans
+        catch err ::
+          console.log @# 'decode', test.decoded, ans
+          throw err
+
