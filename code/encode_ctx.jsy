@@ -10,10 +10,8 @@ export function bind_encoder_context(host, stream) ::
   const dv_tip = new DataView @ u8_tip.buffer
 
   let idx_frame = 0, idx_next = 0
-  if null == stream || true === stream ::
+  if null == stream ::
     stream = u8concat_stream()
-  else if false == stream ::
-    stream = u8array_stream()
 
   const ctx = @{}
     __proto__: null,
@@ -213,14 +211,4 @@ function u8concat_stream() ::
       const u8 = u8_concat(blocks)
       blocks = []
       return u8
-
-function u8array_stream() ::
-  let blocks = []
-  return @{}
-    write(blk) :: blocks.push(blk)
-    flush(blk) ::
-      const res = blocks
-      blocks = []
-      res.push(blk)
-      return res
 
