@@ -1,0 +1,117 @@
+const { assert } = require('chai')
+
+import { u8_to_hex } from 'u8-utils/esm/hex'
+#IF PLAT_NODEJS
+  import { CBOREncoder } from 'cbor-codec/esm/cbor_encode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/cbor_decode.js'
+
+#ELIF PLAT_WEB
+  import { CBOREncoder } from 'cbor-codec/esm/web/cbor_encode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/web/cbor_decode.js'
+
+
+describe @ 'Encode ArrayBuffers and TypedArrays', @=> ::
+  it @ 'ArrayBuffer', @=> ::
+    const ab = new ArrayBuffer(4 + 8 + 4)
+    const u8 = CBOREncoder.encode(ab)
+    assert.equal @ u8_to_hex(u8), '5000000000000000000000000000000000'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ ab
+
+  it @ 'Uint8Array', @=> ::
+    const buf = Uint8Array.from @# 10, 20, 30, 40, 50, 60
+    const u8 = CBOREncoder.encode(buf)
+    assert.equal @ u8_to_hex(u8), '460a141e28323c'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ buf.buffer
+
+  it @ 'Int8Array', @=> ::
+    const buf = Int8Array.from @# -10, 20, -30, 40, -50, 60
+    const u8 = CBOREncoder.encode(buf)
+    assert.equal @ u8_to_hex(u8), '46f614e228ce3c'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ buf.buffer
+
+
+
+  const is_big_endian = 0xab === new Uint8Array(new Uint16Array([0xab12]))[0]
+  if is_big_endian :: return
+
+  it @ 'DataView', @=> ::
+    const dv = new DataView @ new ArrayBuffer(4 + 8 + 4)
+    dv.setFloat32(0, -Infinity)
+    dv.setFloat64(4, 1e-150)
+    dv.setUint32(12, 0xc0ffee)
+
+    const u8 = CBOREncoder.encode(dv)
+    assert.equal @ u8_to_hex(u8), '50ff80000020ca2fe76a3f947500c0ffee'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ dv.buffer
+
+  it @ 'Float32Array', @=> ::
+    const buf = Float32Array.from @# -Infinity, -3e20, -1e-5, -0.0, NaN, 0.0, 1e-5, 3e20, Infinity
+    const u8 = CBOREncoder.encode(buf)
+    assert.equal @ u8_to_hex(u8), '5824000080ffb11a82e1acc527b7000000800000c07f00000000acc52737b11a82610000807f'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ buf.buffer
+
+  it @ 'Float64Array', @=> ::
+    const buf = Float64Array.from @# -Infinity, -3e200, -1e-50, -0.0, NaN, 0.0, 1e-50, 3e200, Infinity
+    const u8 = CBOREncoder.encode(buf)
+    assert.equal @ u8_to_hex(u8), '5848000000000000f0ff8713c343a55a8fe91fb8d44a7aee8db50000000000000080000000000000f87f00000000000000001fb8d44a7aee8d358713c343a55a8f69000000000000f07f'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Uint8Array
+    assert.deepEqual @ u8_to_hex(rt), u8_to_hex @ new Uint8Array @ buf.buffer
+
+
+describe @ 'Encode CBOR Tags', @=> ::
+  it @ 'Tag 1 -- Epoch-based date/time; see Section 2.4.1', @=> ::
+    const v = new Date('2013-03-21T20:04:00.500Z')
+    const u8 = CBOREncoder.encode(v)
+
+    assert.equal @ u8_to_hex(u8), 'c1fb41d452d9ec200000'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Date
+    assert.equal @ +v, +rt
+
+  it @ 'Tag 32 -- URI; see Section 2.4.4.3', @=> ::
+    const v = new URL @ 'http://example.com/p?q=a'
+    const u8 = CBOREncoder.encode(v)
+
+    assert.equal @ u8_to_hex(u8), 'd8207818687474703a2f2f6578616d706c652e636f6d2f703f713d61'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof URL
+    assert.equal @ v.toString(), rt.toString()
+
+  it @ 'Tag 55799 -- Self-describe CBOR; see Section 2.4.5', @=> ::
+    const v = @[] 1, 2, 3
+    const u8 = new CBOREncoder().tagHeader().encode(v).flush()
+
+    assert.equal @ u8_to_hex(u8), 'd9d9f783010203'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.deepEqual @ rt, v
+
+  it @ 'Tag 258 -- Sets for CBOR', @=> ::
+    const v = new Set @# 1, 2, 3
+    const u8 = CBOREncoder.encode(v)
+
+    assert.equal @ u8_to_hex(u8), 'd9010283010203'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Set
+    assert.deepEqual @ rt, v
+

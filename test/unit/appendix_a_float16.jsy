@@ -1,0 +1,56 @@
+export default @[]
+  @{}
+    cbor: "+QAA"
+    hex: "f90000"
+    decoded: 0.0
+
+  @{}
+    cbor: "+YAA"
+    hex: "f98000"
+    decoded: -0.0
+
+  @{}
+    cbor: "+TwA"
+    hex: "f93c00"
+    decoded: 1.0
+
+  @{}
+    cbor: "+T4A"
+    hex: "f93e00"
+    decoded: 1.5
+
+  @{}
+    cbor: "+Xv/"
+    hex: "f97bff"
+    decoded: 65504.0
+
+  @{}
+    cbor: "+QAB"
+    hex: "f90001"
+    decoded: 5.960464477539063e-08
+
+  @{}
+    cbor: "+QQA"
+    hex: "f90400"
+    decoded: 6.103515625e-05
+
+  @{}
+    cbor: "+cQA"
+    hex: "f9c400"
+    decoded: -4.0
+
+  @{}
+    cbor: "+XwA"
+    hex: "f97c00"
+    diagnostic: "Infinity"
+
+  @{}
+    cbor: "+X4A"
+    hex: "f97e00"
+    diagnostic: "NaN"
+
+  @{}
+    cbor: "+fwA"
+    hex: "f9fc00"
+    diagnostic: "-Infinity"
+

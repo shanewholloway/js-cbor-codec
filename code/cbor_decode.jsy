@@ -3,7 +3,7 @@ import { as_u8_buffer } from './u8_utils.jsy'
 import decode_types from './decode_types.jsy'
 export * from './decode_types.jsy'
 
-import @{}
+import ::
   decode_jump,
   decode_basic_jump,
   cbor_break_sym,

@@ -1,0 +1,73 @@
+import { addInt, addUTF8Bytes, addBytes } from './encode_ctx.jsy'
+
+const ObjIs = Object.is
+
+export const encoder_impl_api = @{}
+  t$function(v, ctx) :: throw new Error("TODO: function pluggables")
+  t$symbol(v, ctx) :: throw new Error("TODO: symbol pluggables")
+
+  t$undefined(v, ctx) ::
+    ctx.add_w0(0xf7)
+    return true
+
+  t$boolean(v, ctx) ::
+    ctx.add_w0(v ? 0xf5 : 0xf4)
+    return true
+
+  t$number(v, ctx) ::
+    if ! Number.isSafeInteger(v) ::
+      ctx.float64(v)
+      return true
+
+    if v > 0 :: // pos int
+      addInt(0x00, v, ctx)
+      return true
+
+    if v < 0 ::
+      addInt(0x20, -1 - v, ctx)
+      return true
+
+    if ObjIs(-0, v) ::
+      // negative zero
+      ctx.float32(v)
+      return true
+
+    // int zer0
+    ctx.add_w0(0)
+    return true
+
+  k$bytes(v, ctx) ::
+    addBytes(v, ctx)
+    return true
+
+  t$string(v, ctx) ::
+    addUTF8Bytes(v, ctx)
+    return true
+
+  k$array(v, ctx) ::
+    ctx.array(v, v.length)
+    return true
+
+  t$object(v, ctx) ::
+    if null === v :: // null fast-path
+      ctx.add_w0(0xf6)
+      return true
+
+    // Lookup table for "simple" special instances
+    const simple = ctx.simple_map.get(v)
+    if undefined !== simple ::
+      if simple < 20 ::
+        ctx.add_w0(0xe0 | simple)
+      else if simple <= 0xff ::
+        ctx.add_w1(0xf8, simple)
+      else throw new Error @ `Invalid simple value: ${simple}`
+      return true
+
+  k$entries(v, ctx) ::
+    if 'function' === typeof v.toJSON ::
+      ctx.encode(v.toJSON())
+    else ::
+      const ns = Object.entries(v)
+      ctx.pairs(ns, ns.length)
+    return true
+

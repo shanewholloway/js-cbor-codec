@@ -1,0 +1,27 @@
+export default @[]
+  @{}
+    cbor: "+kfDUAA="
+    hex: "fa47c35000"
+    decoded: 100000.0
+
+  @{}
+    cbor: "+n9///8="
+    hex: "fa7f7fffff"
+    decoded: 3.4028234663852886e+38
+
+  @{}
+    cbor: "+n+AAAA="
+    hex: "fa7f800000"
+    diagnostic: "Infinity"
+
+  @{}
+    cbor: "+n/AAAA="
+    hex: "fa7fc00000"
+    diagnostic: "NaN"
+
+  @{}
+    cbor: "+v+AAAA="
+    hex: "faff800000"
+    diagnostic: "-Infinity"
+
+

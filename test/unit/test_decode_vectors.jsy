@@ -1,5 +1,12 @@
 const { assert } = require('chai')
-import test_vectors from './appendix_a.jsy'
+import test_vectors_base from './appendix_a.jsy'
+import test_vectors_float16 from './appendix_a_float16.jsy'
+import test_vectors_float32 from './appendix_a_float32.jsy'
+
+const test_vectors = [].concat @
+  test_vectors_base
+  test_vectors_float16
+  test_vectors_float32
 
 import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
 import half_float from 'cbor-codec/esm/half_float.js'

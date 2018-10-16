@@ -19,8 +19,9 @@ const plugins_min = plugins_web.concat([ rpi_terser({}) ])
 
 
 add_jsy('index', true)
-add_jsy('cbor_decode')
-add_jsy('cbor_encode')
+add_jsy('full', true)
+add_jsy('cbor_decode', true)
+add_jsy('cbor_encode', true)
 add_jsy('half_float')
 
 

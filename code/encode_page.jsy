@@ -1,0 +1,60 @@
+import { as_u8_buffer, u8_concat } from './u8_utils.jsy'
+
+export default u8_blockpage
+export function u8_blockpage(on_emit_u8) ::
+  const blockSize = 4096
+  const u8_tip = new Uint8Array(blockSize)
+
+  let idx = 0, fin
+
+  if null == on_emit_u8 ::
+    on_emit_u8 = u8_direct_bytes()
+
+  return Object.assign @ u8_tip, @{}
+    nextBlock, emitBuffer, flush
+
+  function flush() ::
+    if idx > 0 ::
+      fin = on_emit_u8 @ u8_tip.slice(0, idx)
+      idx = 0
+
+    return 'function' === typeof fin
+      ? fin = fin() : fin
+
+  function nextBlock(bkind, byteWidth) ::
+    const end = 1 + idx + byteWidth
+    u8_tip[idx] = bkind
+
+    if end < blockSize ::
+      const offset = 1 + idx
+      idx = end
+      return offset
+
+    else ::
+      fin = on_emit_u8 @ u8_tip.slice(0, idx)
+      idx = byteWidth
+      return 1
+
+  function emitBuffer(buf) ::
+    buf = as_u8_buffer(buf)
+    const len = buf.byteLength
+    if len < blockSize - idx ::
+      u8_tip.set(buf, idx)
+      idx += len
+    else ::
+      fin = on_emit_u8 @ u8_tip.slice(0, idx)
+      idx = 0
+
+
+function u8_direct_bytes() ::
+  let blocks = []
+
+  return blk => ::
+    blocks.push(blk)
+    return u8_flush
+
+  function u8_flush() ::
+    const u8 = u8_concat(blocks)
+    blocks = []
+    return u8
+

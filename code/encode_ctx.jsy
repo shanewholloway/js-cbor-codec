@@ -1,0 +1,201 @@
+import { utf8_to_u8 } from './u8_utils.jsy'
+import u8_blockpage from './encode_page.jsy'
+
+export class EncoderContext ::
+  constructor(host, on_emit_u8) ::
+    const u8_tip = u8_blockpage(on_emit_u8)
+
+    Object.defineProperties @ this, @{}
+      host: @{} value: host
+      u8_tip: @{} value: u8_tip
+      dv_tip: @{} value: new DataView(u8_tip.buffer)
+      nextBlock: @{} value: u8_tip.nextBlock
+
+  encode(v, ctx) ::
+    return this.host.encode(v, ctx || this)
+
+  flush() ::
+    return this.u8_tip.flush()
+
+  add_dataview(bkind, byteLength) ::
+    const u8_tip = this.u8_tip
+    const idx = u8_tip.nextBlock(bkind, byteLength)
+    return new DataView(u8_tip.buffer, idx, byteLength)
+
+  add_w0(bkind) ::
+    this.u8_tip.nextBlock(bkind, 0)
+
+  add_w1(bkind, v8) ::
+    const u8_tip = this.u8_tip
+    const idx = u8_tip.nextBlock(bkind, 1)
+    u8_tip[idx] = v8
+
+  add_w2(bkind, v16) ::
+    const idx = this.nextBlock(bkind, 2)
+    this.dv_tip.setUint16(idx, v16)
+
+  add_w4(bkind, v32) ::
+    const idx = this.nextBlock(bkind, 4)
+    this.dv_tip.setUint32(idx, v32)
+
+  add_w8(bkind, v64) ::
+    const idx = this.nextBlock(bkind, 8)
+
+    const v_hi = (v64 / 0x100000000) | 0
+    this.dv_tip.setUint32(idx, v_hi)
+
+    const v_lo = v64 & 0xffffffff
+    this.dv_tip.setUint32(4+idx, v_lo)
+
+
+  float16_short(u16) ::
+    const idx = this.nextBlock(0xf9, 2)
+    this.dv_tip.setUint16(idx, v)
+
+  float32(v) ::
+    const idx = this.nextBlock(0xfa, 4)
+    this.dv_tip.setFloat32(idx, v)
+
+  float64(v) ::
+    const idx = this.nextBlock(0xfb, 8)
+    this.dv_tip.setFloat64(idx, v)
+
+  tag(tag, withTag) ::
+    addInt(0xc0, tag, this)
+    return withTag || this.host.withTag(tag)
+
+  buffer(buf) ::
+    this.u8_tip.emitBuffer(buf)
+
+  bytes_stream(iterable) ::
+    this.add_w0(0x5f) // bytes stream
+
+    for const v of iterable ::
+      addBytes(v, this)
+
+    this.add_w0(0xff) // break
+
+
+  utf8_stream(iterable) ::
+    this.add_w0(0x7f) // utf8 stream
+
+    for const v of iterable ::
+      addUTF8Bytes(v, this)
+
+    this.add_w0(0xff) // break
+
+
+  array(iterable, count) ::
+    const host = this.host
+
+    if Number.isInteger(count) ::
+      addInt(0x80, count, this)
+
+      for const v of iterable ::
+        host.encode(v, this)
+
+        if 0 >= count -- ::
+          break
+
+    else :: // streaming mode
+
+      this.add_w0(0x9f) // list stream
+
+      for const v of iterable ::
+        host.encode(v, this)
+
+      this.add_w0(0xff) // break
+
+
+  pairs(iterable, count) ::
+    const host = this.host
+
+    if Number.isInteger(count) ::
+      addInt(0xa0, count, this)
+
+      for const [k,v] of iterable ::
+        host.encode(k, this)
+        host.encode(v, this)
+
+        if 0 >= count -- ::
+          break
+
+    else :: // streaming mode
+
+      this.add_w0(0xbf) // map stream
+
+      for const [k,v] of iterable ::
+        host.encode(k, this)
+        host.encode(v, this)
+
+      this.add_w0(0xff) // break
+
+
+export default EncoderContext
+
+
+const emptyMapLike = @{}
+  [Symbol.iterator]() :: return []
+  get() {}
+
+EncoderContext.prototype.simple_map = emptyMapLike
+
+
+const W0=0, W1=24, W2=25, W4=26, W8=27 
+function maskWidthBits(v) ::
+  return v < 24 ? W0 // tiny
+    : v <= 0xff ? W1 // 8 bit
+    : v <= 0xffff ? W2 // 16 bit
+    : v <= 0xffffffff ? W4 // 32 bit
+    : W8 // 64 bit 
+
+
+export function addInt(mask, v, ctx) ::
+  const mw = maskWidthBits(v)
+  if v < 24 :: // tiny
+    ctx.add_w0(mask | v)
+  else if W1 === mw ::
+    ctx.add_w1(mask | mw, v)
+  else if W2 === mw ::
+    ctx.add_w2(mask | mw, v)
+  else if W4 === mw ::
+    ctx.add_w4(mask | mw, v)
+  else if W8 === mw ::
+    ctx.add_w8(mask | mw, v)
+  else throw new Error
+
+
+
+export function addBytes(buf, ctx) ::
+  #IF PLAT_NODEJS
+    if Buffer.isBuffer(buf) ::
+      return void addRawBuffer(0x40, Uint8Array.from(buf), ctx)
+
+  if ArrayBuffer.isView(buf) || buf instanceof ArrayBuffer ::
+    return void addRawBuffer(0x40, buf, ctx)
+
+  throw new TypeError @ "Unexpected ArrayBuffer/TypedArray buffer"
+
+
+export function addUTF8Bytes(v, ctx) ::
+  addRawBuffer(0x60, utf8_to_u8(v), ctx)
+
+
+export function addRawBuffer(mask, buf, ctx) ::
+  const len = buf.byteLength
+  const mw = maskWidthBits(len)
+  const m = mask | mw
+
+  if W0 === mw ::
+    ctx.add_w0(m | len)
+  else if W1 === mw ::
+    ctx.add_w1(m, len)
+  else if W2 === mw ::
+    ctx.add_w2(m, len)
+  else if W4 === mw ::
+    ctx.add_w4(m, len)
+  else if W8 === mw ::
+    ctx.add_w8(m, len)
+
+  ctx.buffer(buf)
+

@@ -1,6 +1,14 @@
+
+export ::
+  as_u8_buffer,
+  u8_concat,
+
+  u8_to_utf8,
+  utf8_to_u8,
+
 #IF PLAT_NODEJS
-  export * from 'u8-utils/esm'
+  from 'u8-utils/esm'
 
 #ELIF PLAT_WEB
-  export * from 'u8-utils/esm/web'
+  from 'u8-utils/esm/web'
 

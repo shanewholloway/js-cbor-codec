@@ -1,0 +1,28 @@
+const { assert } = require('chai')
+import test_vectors from './appendix_a.jsy'
+
+import { u8_to_hex } from 'u8-utils/esm/hex'
+#IF PLAT_NODEJS
+  import { CBOREncoder } from 'cbor-codec/esm/cbor_encode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/cbor_decode.js'
+
+#ELIF PLAT_WEB
+  import { CBOREncoder } from 'cbor-codec/esm/web/cbor_encode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/web/cbor_decode.js'
+
+
+describe @ 'Encode CBOR Test Vectors', @=> ::
+  for const test of test_vectors ::
+
+    if ! test.roundtrip :: continue
+    if test.diagnostic :: continue
+
+    const it_fn = test.skip ? it.skip : test.only ? it.only : it
+    it_fn @ `${JSON.stringify(test.decoded)} to "${test.hex}"`, @=> ::
+
+      const u8 = CBOREncoder.encode(test.decoded)
+      assert.equal @ u8_to_hex(u8), test.hex
+
+      const rt = CBORDecoder.decode(u8)
+      assert.deepEqual @ [test.decoded], [rt]
+
