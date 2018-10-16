@@ -12,6 +12,7 @@ export * from './decode_jump.jsy'
 
 
 export default cbor_u8_decode
+export const decode = cbor_u8_decode
 export function cbor_u8_decode(u8, options) ::
   return CBORDecoder.decode(u8)
 

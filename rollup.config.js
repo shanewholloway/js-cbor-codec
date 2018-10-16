@@ -7,7 +7,7 @@ const pkg_name = pkg.name.replace('-', '_')
 const configs = []
 export default configs
 
-const sourcemap = true
+const sourcemap = 'inline'
 const external = []
 
 const plugins = [ rpi_resolve({main: true, modules: true}), ]

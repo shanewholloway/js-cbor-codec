@@ -1,169 +1,79 @@
 #IF PLAT_NODEJS
   const { URL } = require('url')
 
-const ObjProtoOf = Object.getPrototypeOf
+import { bind_encoder_context, _obj_kind_ } from './encode_ctx.jsy'
 
-import { encoder_impl_api } from './encode_jump.jsy'
-import { EncoderContext } from './encode_ctx.jsy'
-
-export default cbor_encode
-export function cbor_u8_encode(v) ::
-  return CBOREncoderBasic.encode(v)
-
-
-function dynamic_encode(v, ctx) ::
-  ctx.host.dynamic_encode(v, ctx)
 
 function noop() ::
 
 export class CBOREncoderBasic ::
-  static create(on_emit_u8) ::
-    return new this(on_emit_u8)
+  static create(stream) :: return new this(stream)
+  static encode(v) :: return new this().encode(v)
 
-  static encode(v) ::
-    return new this()
-      .encode(v)
-      .flush()
-
-  constructor(on_emit_u8) ::
-    this.ctx = new EncoderContext(this, on_emit_u8)
+  constructor(stream) ::
+    this.encode = bind_encoder_context(this, stream)
 
   tagHeader(tag) ::
-    this.ctx.tag @ tag || 0xd9f7, true
+    this.encode.tag @ tag || 0xd9f7, true
     return this
-
-  encode(v) ::
-    const ctx = this.ctx
-    const key = `t$${typeof v}`
-    const enc = this._impl[key]
-
-    if ! enc(v, ctx) ::
-      this._enc_object(v, ctx)
-    return this
-
-  flush() ::
-    return this.ctx.flush()
-
-  _enc_object(v, ctx) ::
-    // Try .toCBOR extension points
-    if 'function' === typeof v.toCBOR ::
-      return v.toCBOR(ctx, v)
-
-    const constructor = v.constructor || null
-    if 'function' === typeof constructor.toCBOR ::
-      return constructor.toCBOR(ctx, v)
-
-    // Lookup encoder based on constructor or prototype chain
-    const encoder = this._encoderFor(v, constructor)
-    return encoder(v, ctx)
-
-
-  _encoderFor(v, constructor=v.constructor) ::
-    const lut = this._encoders
-    let encoder = lut.get(constructor)
-    if undefined !== encoder ::
-      return encoder
-
-    for let vp = ObjProtoOf(v); vp !== null; vp = ObjProtoOf(vp) ::
-      encoder = lut.get(vp)
-      if undefined !== encoder ::
-        return encoder
-
-    return dynamic_encode
-
-  dynamic_encode(v, ctx) ::
-    if 'function' === typeof v[Symbol.iterator] ::
-      ctx.array(v)
-      return true
 
   withTag(tag) :: return noop
 
   encoder_map() ::
-    if ! Object.hasOwnProperty(this, '_encoders') ::
-      this._encoders = new Map(this._encoders)
-    return this._encoders
+    if ! Object.hasOwnProperty(this, '_encoder_map') ::
+      this._encoder_map = new Map(this._encoder_map)
+      this.encode.rebind()
+    return this._encoder_map
 
   simple_map() ::
-    let res = this._simple_map
-    if undefined === res ::
-      // clone the simple map in ctx
-      res = new Map(this.ctx.simple_map)
-      this.ctx.simple_map = this._simple_map = res
-    return res
+    if ! Object.hasOwnProperty(this, '_simple_map') ::
+      this._simple_map = new Map(this._simple_map)
+      this.encode.rebind()
+    return this._simple_map
 
 
-CBOREncoderBasic.prototype._impl = Object.assign @ {}, encoder_impl_api
-CBOREncoderBasic.prototype._encoders = builtin_encoders @ new Map()
+CBOREncoderBasic.prototype._simple_map = new Map()
+CBOREncoderBasic.prototype._encoder_map = new Map()
 
 
 export class CBOREncoder extends CBOREncoderBasic ::
 
-CBOREncoder.prototype._impl = Object.assign @ {}, encoder_impl_api
-CBOREncoder.prototype._encoders = basic_tag_encoders @
-  new Map @ CBOREncoderBasic.prototype._encoders
-
-
-
-export function builtin_encoders(encoders) ::
-  encoders.set @ Object, encoder_impl_api.k$entries
-  encoders.set @ ObjProtoOf({}), encoder_impl_api.k$entries
-  encoders.set @ null, encoder_impl_api.k$entries
-
-  encoders.set @ Array, encoder_impl_api.k$array
-  encoders.set @ ObjProtoOf([]), encoder_impl_api.k$array
-
-  const ab = new ArrayBuffer(32)
-  encoders.set @ ArrayBuffer, encoder_impl_api.k$bytes
-  encoders.set @ ObjProtoOf(ab), encoder_impl_api.k$bytes
-
-  for const ArrayDataKlass of @[]
-      Int8Array, Uint8Array, Uint8ClampedArray,
-      Int16Array, Uint16Array, Int32Array, Uint32Array,
-      Float32Array, Float64Array, DataView ::
-
-    encoders.set @ ArrayDataKlass, encoder_impl_api.k$bytes
-    encoders.set @ ObjProtoOf(new ArrayDataKlass(ab)), encoder_impl_api.k$bytes
-
-  return encoders
+CBOREncoder.prototype._simple_map = new Map()
+CBOREncoder.prototype._encoder_map = basic_tag_encoders @ new Map()
 
 
 
 export function basic_tag_encoders(encoders) ::
-  encoders.set @ Date, encode_epoch_date
-  encoders.set @ ObjProtoOf(new Date()), encode_epoch_date
-
-  encoders.set @ URL, encode_uri_extension
-  encoders.set @ ObjProtoOf(new URL('ws://h')), encode_uri_extension
-
-  encoders.set @ Map, encode_map_extension
-  encoders.set @ ObjProtoOf(new Map()), encode_map_extension
-
-  encoders.set @ Set, encode_set_extension
-  encoders.set @ ObjProtoOf(new Set()), encode_set_extension
+  encoders.set @ _obj_kind_(new Date()), encode_epoch_date
+  encoders.set @ _obj_kind_(new URL('ws://h')), encode_uri_extension
+  encoders.set @ _obj_kind_(new Map()), encode_map_extension
+  encoders.set @ _obj_kind_(new Set()), encode_set_extension
 
   return encoders
 
-export function encode_epoch_date(v, ctx) ::
+function encode_epoch_date(v, ctx) ::
   const end_tag = ctx.tag(1)
-  ctx.add_dataview(0xfb, 8).setFloat64(0, v / 1000.)
+  ctx.float64(v / 1000.)
   end_tag()
-  return true
 
-export function encode_uri_extension(v, ctx) ::
+function encode_uri_extension(v, ctx) ::
   const end_tag = ctx.tag(32)
-  ctx.encode(v.toString(), ctx)
+  ctx.add_utf8(v.toString())
   end_tag()
-  return true
 
-export function encode_set_extension(v, ctx) ::
+function encode_set_extension(v, ctx) ::
   const end_tag = ctx.tag(258)
-  ctx.array(v, v.size)
+  ctx.list(v, v.size)
   end_tag()
-  return true
 
-export function encode_map_extension(v, ctx) ::
+function encode_map_extension(v, ctx) ::
   // TODO: select tag id for specific Map type
   // ctx.tag(???)
-  ctx.pairs(v, v.size)
-  return true
+  ctx.pairs(v.entries(), v.size)
+
+
+
+export const cbor_u8_encode = new CBOREncoder().encode
+export const encode = cbor_u8_encode
+export default cbor_encode
 
