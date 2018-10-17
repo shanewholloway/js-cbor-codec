@@ -1,94 +1,49 @@
-import { as_u8_buffer } from './u8_utils.jsy'
-
 import decode_types from './decode_types.jsy'
 export * from './decode_types.jsy'
 
-import ::
-  decode_jump,
-  decode_basic_jump,
-  cbor_break_sym,
-from './decode_jump.jsy'
+import { U8DecodeCtx, decode_jump, decode_basic_jump } from './decode_jump.jsy'
 export * from './decode_jump.jsy'
 
 
-export default cbor_u8_decode
-export const decode = cbor_u8_decode
-export function cbor_u8_decode(u8, options) ::
-  return CBORDecoder.decode(u8)
-
-
 export class CBORDecoderBasic ::
-  static create(u8) :: return new this(u8)
-  static decode(u8) :: return new this(u8).nextValue()
-
-  static withDecodeCBOR(u8) ::
-    u8.decodeCBOR = @=> this.decode(u8)
-    return u8
-  withDecodeCBOR(u8) ::
-    return this.constructor.withDecodeCBOR(u8)
+  static decode(u8) :: return new this().decode(u8)
+  static iter_decode(u8) :: return new this().iter_decode(u8)
 
   static options(options) ::
-    if ! options :: return this
+    if options ::
+      class CBORDecoder_ extends this ::
+      return CBORDecoder_.compile(options)
+    else return this
 
-    class CBORDecoder_ extends this ::
-
-    const jmp = decode_jump @ options, this.jmp
-    CBORDecoder_.prototype.jmp = jmp
+  static compile(options) ::
+    const p = this.prototype
+    p.jmp = decode_jump @ options, this.jmp
 
     if options.types ::
-      const types = Object.create(this.prototype.types)
-      CBORDecoder_.prototype.types = types
+      p.types = Object.assign @
+        Object.create(p.types || null),
+        options.types
 
-      Object.assign(types, options.types)
+    p.U8Context = U8DecodeCtx.subclass @
+      p.types, p.jmp, options.unknown
 
-    return CBORDecoder_
+    return this
 
-  constructor(u8) ::
-    u8 = as_u8_buffer(u8)
+  constructor() ::
+    const ctxFromU8 = this.U8Context.fromU8.bind(this.U8Context)
 
-    Object.defineProperties @ this, @{}
-      u8: @{} value: u8
-      dv: @{} value: new DataView(u8.buffer)
-
-    this.idx = 0
-
-    const stack = []
-    this.typestack = stack
-    this.types = this.types
-
-    const jmp = this.jmp
-    this.next = @=> ::
-      const type_b = u8[ this.idx ++ ]
-      if undefined === type_b ::
-        return @{} done: true
-
-      if 0 !== stack.length ::
-        this.types = stack.pop()
-
-      const decode = jmp[type_b] || this.decode_unknown
-      const value = decode(this, type_b)
-      return @{} done: cbor_break_sym === value, value
-
-  [Symbol.iterator]() :: return this
-
-  nextValue() ::
-    const {value, done} = this.next()
-    if done && cbor_break_sym !== value ::
-      throw new Error @ 'CBOR decode past the end of buffer'
-    return value
-
-  pushTypes(types) ::
-    if 'string' === typeof types ::
-      types = decode_types[types]
-
-    this.typestack.push(this.types, types)
-    this.types = types
-
-  decode_unknown(decoder, type_b) ::
-    throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
+    this.decode = u8 => ctxFromU8(u8, this.types).decode()
+    this.iter_decode = u8 => ctxFromU8(u8, this.types).iter_decode()
 
 
-CBORDecoderBasic.prototype.jmp = decode_basic_jump()
-CBORDecoderBasic.prototype.types = decode_types
+CBORDecoderBasic.compile @:
+  types: decode_types
+  jmp: decode_basic_jump()
 
-export const CBORDecoder = CBORDecoderBasic
+
+export class CBORDecoder extends CBORDecoderBasic ::
+CBORDecoder.compile @: types: decode_types
+
+export const decode = new CBORDecoder().decode
+export const cbor_u8_decode = decode
+export default decode

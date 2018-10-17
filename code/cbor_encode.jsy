@@ -73,7 +73,7 @@ function encode_map_extension(v, ctx) ::
 
 
 
-export const cbor_u8_encode = new CBOREncoder().encode
-export const encode = cbor_u8_encode
-export default cbor_encode
+export const encode = new CBOREncoder().encode
+export const cbor_u8_encode = encode
+export default encode
 

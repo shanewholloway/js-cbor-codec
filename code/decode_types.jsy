@@ -3,10 +3,15 @@ import { u8_to_utf8, u8_concat } from './u8_utils.jsy'
 export const decode_types = @{}
   __proto__: null
 
-  half_float(u8) :: return u8
+  nestedCBOR(u8, ctx) ::
+    ctx = ctx.fromNestedU8(u8)
+    u8.decodeCBOR = () => ctx.decode()
+    return u8
+
+  float16(u8) :: return u8
 
   bytes(u8) :: return u8
-  bytes_stream(decoder) ::
+  bytes_stream(ctx) ::
     let res = []
     return function (done, i, u8) ::
       if done ::
@@ -17,7 +22,7 @@ export const decode_types = @{}
       res.push(u8)
 
   utf8(u8) :: return u8_to_utf8 @ u8
-  utf8_stream(decoder) ::
+  utf8_stream(ctx) ::
     let res = []
     return function (done, i, str) ::
       if done ::
@@ -30,13 +35,13 @@ export const decode_types = @{}
 
   empty_list() :: return []
 
-  list(decoder, len) ::
-    let res = 0 === len ? [] : new Array(len)
+  list(ctx, len) ::
+    let res = len ? new Array(len) : []
     return function (done, i, v) ::
       if done :: return res
       res[i] = v
 
-  list_stream(decoder) ::
+  list_stream(ctx) ::
     let res = []
     return function (done, i, v) ::
       if done :: return res
@@ -45,13 +50,13 @@ export const decode_types = @{}
 
   empty_map() :: return {}
 
-  map(decoder) ::
+  map(ctx) ::
     let res = {}
     return function (done, k, v) ::
       if done :: return res
       res[k] = v
 
-  map_stream(decoder) ::
+  map_stream(ctx) ::
     let res = {}
     return function (done, k, v) ::
       if done :: return res
@@ -63,13 +68,13 @@ export const decode_types = @{}
 
     empty_map() :: return new Map()
 
-    map(decoder) ::
+    map(ctx) ::
       let res = new Map()
       return function (done, k, v) ::
         if done :: return res
         res.set(k, v)
 
-    map_stream(decoder) ::
+    map_stream(ctx) ::
       let res = new Map()
       return function (done, k, v) ::
         if done :: return res
@@ -81,13 +86,13 @@ export const decode_types = @{}
 
     empty_list() :: return new Set()
 
-    list(decoder) ::
+    list(ctx) ::
       let res = new Set()
       return function (done, i, v) ::
         if done :: return res
         res.add(v)
 
-    list_stream(decoder) ::
+    list_stream(ctx) ::
       let res = new Set()
       return function (done, i, v) ::
         if done :: return res

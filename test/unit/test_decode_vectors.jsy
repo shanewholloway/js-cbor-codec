@@ -37,7 +37,7 @@ testing_tags.set @ 32, tag_as_diagnostic // URI
 const CBORDecoder = CBORDecoderBasic.options @:
   tags: testing_tags
   types: @{}
-    half_float
+    float16: half_float
     bytes(u8) :: return `h'${u8_to_hex(u8)}'`
     bytes_stream(u8) ::
       let res = []
