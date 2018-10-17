@@ -20,9 +20,10 @@ const plugins_min = plugins_web.concat([ rpi_terser({}) ])
 
 add_jsy('index', true)
 add_jsy('full', true)
-add_jsy('cbor_decode', true)
 add_jsy('cbor_encode', true)
-add_jsy('half_float')
+add_jsy('cbor_encode_full', true)
+add_jsy('cbor_decode', true)
+add_jsy('float16')
 
 
 function add_jsy(src_name, inc_min) {

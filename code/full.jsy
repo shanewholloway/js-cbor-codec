@@ -1,5 +1,6 @@
 export * from './cbor_encode.jsy'
+export * from './cbor_encode_full.jsy'
 export * from './cbor_decode.jsy'
-export * from './half_float.jsy'
+export * from './float16.jsy'
 export * from './u8_utils.jsy'
 

@@ -9,7 +9,7 @@ const test_vectors = [].concat @
   test_vectors_float32
 
 import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
-import half_float from 'cbor-codec/esm/half_float.js'
+import float16 from 'cbor-codec/esm/float16.js'
 
 #IF PLAT_NODEJS
   import { CBORDecoderBasic } from 'cbor-codec/esm/cbor_decode.js'
@@ -37,7 +37,7 @@ testing_tags.set @ 32, tag_as_diagnostic // URI
 const CBORDecoder = CBORDecoderBasic.options @:
   tags: testing_tags
   types: @{}
-    float16: half_float
+    float16
     bytes(u8) :: return `h'${u8_to_hex(u8)}'`
     bytes_stream(u8) ::
       let res = []
