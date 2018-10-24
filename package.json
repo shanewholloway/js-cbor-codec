@@ -1,6 +1,6 @@
 {
   "name": "cbor-codec",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "CBOR Codec for NodeJS and the Web",
   "license": "BSD-2-Clause",
   "author": "Shane Holloway <shane.holloway@ieee.org>",
@@ -34,8 +34,10 @@
     "build": "rollup --config",
     "watch": "npm -s run build -- --watch",
     "pretest": "npm -s run build",
-    "test": "cd test; npm -s run test",
-    "test:install": "cd test; npm -s install",
+    "test": "cd test && npm -s run test",
+    "posttest": "cd test/leveldb && npm -s run test",
+    "test:install": "cd test && npm -s install",
+    "posttest:install": "cd test/leveldb && npm -s run install",
     "test:one": "cd test; npm -s run test:one",
     "test:watch": "cd test; npm -s run test:watch"
   }

@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "dependencies": {
+    "abstract-leveldown": "^5.0.0",
+    "cbor-codec": "file:../..",
+    "encoding-down": "^4.0.0",
+    "levelup": "^3.1.1",
+    "memdown": "^2.0.0"
+  },
+  "devDependencies": {
+    "rimraf": "^2.6.2",
+    "sinon": "^6.1.5",
+    "tape": "^4.9.1"
+  },
+  "scripts": {
+    "pretest": "test -d ./node_modules || npm -s install",
+    "test": "node test-leveldown.js"
+  }
+}

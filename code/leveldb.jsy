@@ -1,0 +1,6 @@
+import {encode} from './cbor_encode.js'
+import {decode} from './cbor_decode.js'
+
+// [LevelDB Encoding Format](https://github.com/level/codec#encoding-format)
+export default @{} type: 'cbor', buffer: true, encode, decode
+
