@@ -1,48 +1,5 @@
-import decode_types from './decode_types.jsy'
-export * from './decode_types.jsy'
-
-import { U8DecodeCtx, decode_jump, decode_basic_jump } from './decode_jump.jsy'
-export * from './decode_jump.jsy'
-
-
-export class CBORDecoderBasic ::
-  static decode(u8) :: return new this().decode(u8)
-  static iter_decode(u8) :: return new this().iter_decode(u8)
-
-  static options(options) ::
-    if options ::
-      class CBORDecoder_ extends this ::
-      return CBORDecoder_.compile(options)
-    else return this
-
-  static compile(options) ::
-    const p = this.prototype
-    p.jmp = decode_jump @ options, this.jmp
-
-    if options.types ::
-      p.types = Object.assign @
-        Object.create(p.types || null),
-        options.types
-
-    p.U8Context = U8DecodeCtx.subclass @
-      p.types, p.jmp, options.unknown
-
-    return this
-
-  constructor() ::
-    const ctxFromU8 = this.U8Context.fromU8.bind(this.U8Context)
-
-    this.decode = u8 => ctxFromU8(u8, this.types).decode()
-    this.iter_decode = u8 => ctxFromU8(u8, this.types).iter_decode()
-
-
-CBORDecoderBasic.compile @:
-  types: decode_types
-  jmp: decode_basic_jump()
-
-
-export class CBORDecoder extends CBORDecoderBasic ::
-CBORDecoder.compile @: types: decode_types
+import { CBORDecoder } from './decode/index.jsy'
+export * from './decode/index.jsy'
 
 export const decode = new CBORDecoder().decode
 export const cbor_u8_decode = decode

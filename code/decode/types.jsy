@@ -1,4 +1,4 @@
-import { u8_to_utf8, u8_concat } from './u8_utils.jsy'
+import { u8_to_utf8, u8_concat } from '../u8_utils.jsy'
 
 export const decode_types = @{}
   __proto__: null

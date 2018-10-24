@@ -1,0 +1,131 @@
+
+const objIs = Object.is
+export const _obj_kind_ = Function.call.bind @ Object.prototype.toString
+
+export function bind_encode_dispatch(ctx, api) ::
+  let simple_map, encode_object, lut_types
+
+  ctx.encode = encode
+
+  // rebind() binds the following: 
+  //   - simple_map, encode_object, lut_types
+  //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
+  api.rebind = rebind
+  return
+
+  function rebind(host) ::
+    Object.defineProperties @ ctx, @{}
+      host: {value: host}
+
+    simple_map = host._simple_map
+    lut_types = new Map(lut_common_types)
+
+    for const [k,fn] of host._encoder_map.entries() ::
+      if 'string' === typeof k && 'function' === typeof fn ::
+        lut_types.set @ k, fn
+
+    if host.bind_encode_object ::
+      encode_object = host.bind_encode_object(ctx, lut_types)
+
+    else if host.encode_object ::
+      encode_object = host.encode_object
+
+    if encode_object ::
+      lut_types.set @ _obj_kind_({}), encode_object
+    else encode_object = lut_types.get @ _obj_kind_({})
+
+
+  function encode(v) ::
+    const encoder = lut_types.get @ _obj_kind_(v)
+    if undefined !== encoder ::
+      encoder(v, ctx)
+      return
+
+    // Lookup table for "simple" special instances
+    if undefined !== simple_map ::
+      const simple = simple_map.get(v)
+      if undefined !== simple ::
+        if simple < 24 ::
+          ctx.add_w0(0xe0 | simple)
+        else if simple <= 0xff ::
+          ctx.add_w1(0xf8, simple)
+        else throw new Error @ `Invalid simple value: ${simple}`
+        return
+
+    // not '[object Object]', but also not handled explicitly. (e.g. [object Date])
+    encode_object(v, ctx)
+    return
+
+
+
+const cu8_f32_nan = new Uint8Array @# 0xfa, 0x7f, 0xc0, 0, 0
+const cu8_f32_neg_zero = new Uint8Array @# 0xfa, 0x80, 0, 0, 0
+const lut_raw = bind_builtin_raw @ new Map()
+
+function bind_builtin_raw(lut_raw) ::
+  lut_raw.set @ -0, cu8_f32_neg_zero
+  lut_raw.set @ NaN, cu8_f32_nan
+  lut_raw.set @ Infinity, new Uint8Array @# 0xfa, 0x7f, 0x80, 0, 0
+  lut_raw.set @ -Infinity, new Uint8Array @# 0xfa, 0xff, 0x80, 0, 0
+
+  return lut_raw
+
+function encode_number(v, ctx) ::
+  if ! Number.isSafeInteger(v) ::
+    const raw = lut_raw.get(v)
+    if undefined === raw ::
+      // floating point or very large numbers
+      ctx.float64(v)
+
+    else ::
+      ctx.raw_frame(raw)
+
+  else if v > 0 ::
+    // pos int
+    ctx.add_int(0x00, v)
+
+  else if v < 0 ::
+    // neg int
+    ctx.add_int(0x20, -1 - v)
+
+  else if objIs(-0, v) ::
+    // negative zero; does not play well with identity or Map() lookup
+    ctx.raw_frame @ cu8_f32_neg_zero
+
+  else ::
+    // int zero
+    ctx.add_w0(0)
+
+
+
+const lut_common_types = bind_builtin_types @ new Map()
+
+function bind_builtin_types(lut_types) ::
+  lut_types.set @ _obj_kind_(NaN), (v, ctx) => :: ctx.raw_frame @ cu8_f32_nan
+  lut_types.set @ _obj_kind_(undefined), (v, ctx) => :: ctx.add_w0(0xf7)
+  lut_types.set @ _obj_kind_(null), (v, ctx) => :: ctx.add_w0(0xf6)
+  lut_types.set @ _obj_kind_(true), (v, ctx) => :: ctx.add_w0(v ? 0xf5 : 0xf4)
+  lut_types.set @ _obj_kind_('utf8'), (v, ctx) => :: ctx.add_utf8(v)
+  lut_types.set @ _obj_kind_(42), encode_number
+  lut_types.set @ _obj_kind_(42.1), encode_number
+  lut_types.set @ _obj_kind_([]), (v, ctx) => :: ctx.array(v)
+  lut_types.set @ _obj_kind_({}), (v, ctx) => :: ctx.object_pairs(v)
+
+  lut_types.set @ _obj_kind_(parseInt), @=> ::
+  lut_types.set @ _obj_kind_(Symbol.iterator), @=> ::
+
+
+  :: // ArrayBuffer and friends
+    const ab = new ArrayBuffer(0)
+    function encode_bytes(v, ctx) :: ctx.add_bytes(v)
+    lut_types.set @ _obj_kind_(ab), encode_bytes
+
+    for const ArrayDataKlass of @[]
+        Int8Array, Uint8Array, Uint8ClampedArray,
+        Int16Array, Uint16Array, Int32Array, Uint32Array,
+        Float32Array, Float64Array, DataView ::
+
+      lut_types.set @ _obj_kind_(new ArrayDataKlass(ab)), encode_bytes
+
+  return lut_types
+

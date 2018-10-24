@@ -98,7 +98,8 @@ describe @ 'Encode CBOR Tags', @=> ::
 
   it @ 'Tag 55799 -- Self-describe CBOR; see Section 2.4.5', @=> ::
     const v = @[] 1, 2, 3
-    const u8 = new CBOREncoder().tagHeader().encode(v)
+    const u8 = new CBOREncoder().encode @ v, @{} tag: true
+    console.log @ u8
 
     assert.equal @ u8_to_hex(u8), 'd9d9f783010203'
 

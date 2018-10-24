@@ -1,4 +1,4 @@
-import { as_u8_buffer } from './u8_utils.jsy'
+import { as_u8_buffer } from '../u8_utils.jsy'
 
 #IF PLAT_NODEJS
   const {URL} = require('url')

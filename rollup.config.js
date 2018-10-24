@@ -7,7 +7,7 @@ const pkg_name = pkg.name.replace('-', '_')
 const configs = []
 export default configs
 
-const sourcemap = 'inline'
+const sourcemap = true
 
 const plugins = [ rpi_resolve({main: true, modules: true}), ]
 const plugins_generic = [ rpi_jsy() ].concat(plugins)
@@ -26,14 +26,14 @@ add_jsy('cbor_decode', true)
 add_jsy('float16')
 
 // publish leveldb as package that reuses other modules
-configs.push(
-  { input: `code/leveldb.jsy`,
-    plugins: plugins_generic, external: ()=>true,
-    output: [
-      { file: `cjs/leveldb.js`, format: 'cjs', exports:'default', sourcemap },
-      { file: `esm/leveldb.js`, format: 'es', sourcemap },
-      { file: `esm/web/leveldb.js`, format: 'es', sourcemap },
-  ]})
+configs.push({
+  input: `code/leveldb.jsy`,
+  plugins: plugins_generic, external: ()=>true,
+  output: [
+    { file: `cjs/leveldb.js`, format: 'cjs', exports:'default', sourcemap },
+    { file: `esm/leveldb.js`, format: 'es', sourcemap },
+    { file: `esm/web/leveldb.js`, format: 'es', sourcemap },
+]})
 
 
 function add_jsy(src_name, inc_min, {external}={}) {

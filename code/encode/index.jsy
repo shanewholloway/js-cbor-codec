@@ -1,0 +1,73 @@
+#IF PLAT_NODEJS
+  const { URL } = require('url')
+
+import { bind_encoder_context, _obj_kind_ } from './ctx.jsy'
+
+export { sym_cbor } from './ctx.jsy'
+
+
+export class CBOREncoderBasic ::
+  static create(stream) :: return new this(stream)
+  static encode(v) :: return new this().encode(v)
+
+  constructor(stream) ::
+    this.encode = bind_encoder_context(stream)
+    this.rebind()
+
+  rebind() ::
+    this.encode.rebind(this)
+    return this
+
+  withTag(tag) :: return noop
+
+  encoder_map() ::
+    if ! Object.hasOwnProperty(this, '_encoder_map') ::
+      this._encoder_map = new Map(this._encoder_map)
+      this.rebind()
+    return this._encoder_map
+
+  simple_map() ::
+    if ! Object.hasOwnProperty(this, '_simple_map') ::
+      this._simple_map = new Map(this._simple_map)
+      this.rebind()
+    return this._simple_map
+
+
+CBOREncoderBasic.prototype._encoder_map = new Map()
+function noop() {}
+
+
+export class CBOREncoder extends CBOREncoderBasic ::
+
+CBOREncoder.prototype._encoder_map = basic_tag_encoders @ new Map()
+
+
+
+export function basic_tag_encoders(encoders) ::
+  encoders.set @ _obj_kind_(new Date()), encode_epoch_date
+  encoders.set @ _obj_kind_(new URL('ws://h')), encode_uri_extension
+  encoders.set @ _obj_kind_(new Map()), encode_map_extension
+  encoders.set @ _obj_kind_(new Set()), encode_set_extension
+
+  return encoders
+
+function encode_epoch_date(v, ctx) ::
+  const end_tag = ctx.tag(1)
+  ctx.float64(v / 1000.)
+  end_tag()
+
+function encode_uri_extension(v, ctx) ::
+  const end_tag = ctx.tag(32)
+  ctx.add_utf8(v.toString())
+  end_tag()
+
+function encode_set_extension(v, ctx) ::
+  const end_tag = ctx.tag(258)
+  ctx.list(v, v.size)
+  end_tag()
+
+function encode_map_extension(v, ctx) ::
+  // TODO: select tag id for specific Map type
+  // ctx.tag(???)
+  ctx.pairs(v.entries(), v.size)
+
