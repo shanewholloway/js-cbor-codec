@@ -20,9 +20,9 @@ const plugins_min = plugins_web.concat([ rpi_terser({}) ])
 
 add_jsy('index', true)
 add_jsy('full', true)
-add_jsy('cbor_encode', true)
-add_jsy('cbor_encode_full', true)
-add_jsy('cbor_decode', true)
+add_jsy('encode', true)
+add_jsy('encode_full', true)
+add_jsy('decode', true)
 add_jsy('float16')
 
 // publish leveldb as package that reuses other modules

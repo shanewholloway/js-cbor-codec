@@ -2,10 +2,10 @@ const { assert } = require('chai')
 
 import { hex_to_u8 } from 'u8-utils/esm/hex'
 #IF PLAT_NODEJS
-  import { CBORDecoder } from 'cbor-codec/esm/cbor_decode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/decode.js'
 
 #ELIF PLAT_WEB
-  import { CBORDecoder } from 'cbor-codec/esm/web/cbor_decode.js'
+  import { CBORDecoder } from 'cbor-codec/esm/web/decode.js'
 
 
 describe @ 'Decode CBOR Tags', @=> ::

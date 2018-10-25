@@ -12,10 +12,10 @@ import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
 import float16 from 'cbor-codec/esm/float16.js'
 
 #IF PLAT_NODEJS
-  import { CBORDecoderBasic } from 'cbor-codec/esm/cbor_decode.js'
+  import { CBORDecoderBasic } from 'cbor-codec/esm/decode.js'
 
 #ELIF PLAT_WEB
-  import { CBORDecoderBasic } from 'cbor-codec/esm/web/cbor_decode.js'
+  import { CBORDecoderBasic } from 'cbor-codec/esm/web/decode.js'
 
 
 function tag_as_diagnostic(decoder, tag) ::

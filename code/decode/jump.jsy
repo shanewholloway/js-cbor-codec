@@ -14,14 +14,15 @@ export class U8DecodeCtx ::
     return U8DecodeCtx_
 
 
-  static fromU8(u8, types) ::
-    const inst = new this()
-    inst.u8 = u8 = as_u8_buffer(u8)
-    inst.idx = 0
+  static get fromU8() ::
+    return (u8, types) => ::
+      const inst = new this()
+      inst.u8 = u8 = as_u8_buffer(u8)
+      inst.idx = 0
 
-    if types !== inst.types ::
-      inst.decode_types = inst.types = types
-    return inst
+      if types !== inst.types ::
+        inst.decode_types = inst.types = types
+      return inst
 
   static bindNextValue(jmp, unknown) ::
     if null == unknown ::
@@ -82,7 +83,7 @@ function error_unknown(ctx, type_b) ::
 
 
 export function decode_jump(options, jmp) ::
-  jmp = jmp ? jmp.slice() : decode_basic_jump()
+  jmp = jmp ? jmp.slice() : decode_basic_jump( new Map() )
 
   if null == options :: options = {}
 
@@ -111,8 +112,8 @@ export function decode_jump(options, jmp) ::
   return jmp
 
 
-export function decode_basic_jump() ::
-  const as_tag = bind_tag_dispatch @ basic_tags()
+export function decode_basic_jump(tags_lut) ::
+  const as_tag = bind_tag_dispatch @ tags_lut || new Map()
 
   const tiny_pos_int = _cbor_tiny @ as_pos_int
   const tiny_neg_int = _cbor_tiny @ as_neg_int
@@ -309,65 +310,4 @@ function bind_tag_dispatch(tags_lut) ::
       return undefined === res ? body : res(body)
 
     return @{} tag, body: ctx.nextValue()
-
-
-function basic_tags() ::
-  // from https://tools.ietf.org/html/rfc7049#section-2.4
-
-  const tags_lut = new Map()
-
-  // Standard date/time string; see Section 2.4.1
-  tags_lut.set @ 0, () => ts_sz => new Date @ ts_sz
-  // Epoch-based date/time; see Section 2.4.1
-  tags_lut.set @ 1, () => seconds => new Date @ seconds * 1000
-
-  // Positive bignum; see Section 2.4.2
-  // tags_lut.set @ 2, () => v => v
-
-  // Negative bignum; see Section 2.4.2
-  // tags_lut.set @ 3, () => v => v
-
-  // Decimal fraction; see Section 2.4.3
-  // tags_lut.set @ 4, () => v => v
-
-  // Bigfloat; see Section 2.4.3
-  // tags_lut.set @ 5, () => v => v
-
-  // Expected conversion to base64url encoding; see Section 2.4.4.2
-  // tags_lut.set @ 21, () => v => v
-
-  // Expected conversion to base64 encoding; see Section 2.4.4.2
-  // tags_lut.set @ 22, () => v => v
-
-  // Expected conversion to base16 encoding; see Section 2.4.4.2
-  // tags_lut.set @ 23, () => v => v
-
-  // Encoded CBOR data item; see Section 2.4.4.1
-  tags_lut.set @ 24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx)
-
-  // URI; see Section 2.4.4.3
-  tags_lut.set @ 32, () => url_sz => new URL(url_sz)
-
-  // base64url; see Section 2.4.4.3
-  //tags_lut.set @ 33, () => v => v
-
-  // base64; see Section 2.4.4.3
-  //tags_lut.set @ 34, () => v => v
-
-  // Regular expression; see Section 2.4.4.3
-  //tags_lut.set @ 35, () => v => v
-
-  // MIME message; see Section 2.4.4.3
-  //tags_lut.set @ 36, () => v => v
-
-  // Self-describe CBOR; see Section 2.4.5
-  tags_lut.set @ 55799, () => ::
-
-
-  // EXTENSIONS
-
-  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 258, ctx => :: ctx.pushTypes('Set')
-
-  return tags_lut
 

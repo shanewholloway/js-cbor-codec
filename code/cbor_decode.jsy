@@ -1,6 +1,0 @@
-import { CBORDecoder } from './decode/index.jsy'
-export * from './decode/index.jsy'
-
-export const decode = new CBORDecoder().decode
-export const cbor_u8_decode = decode
-export default decode

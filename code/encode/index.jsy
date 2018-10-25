@@ -1,9 +1,11 @@
 #IF PLAT_NODEJS
   const { URL } = require('url')
 
-import { bind_encoder_context, _obj_kind_ } from './ctx.jsy'
+import { useEncoderFor } from './jump.jsy'
+import { bind_encoder_context } from './ctx.jsy'
 
-export { sym_cbor } from './ctx.jsy'
+export * from './jump.jsy'
+export * from './ctx.jsy'
 
 
 export class CBOREncoderBasic ::
@@ -44,30 +46,29 @@ CBOREncoder.prototype._encoder_map = basic_tag_encoders @ new Map()
 
 
 export function basic_tag_encoders(encoders) ::
-  encoders.set @ _obj_kind_(new Date()), encode_epoch_date
-  encoders.set @ _obj_kind_(new URL('ws://h')), encode_uri_extension
-  encoders.set @ _obj_kind_(new Map()), encode_map_extension
-  encoders.set @ _obj_kind_(new Set()), encode_set_extension
+  // tag 1 -- Date
+  useEncoderFor @ encoders, new Date(), (v, ctx) => ::
+    const end_tag = ctx.tag(1)
+    ctx.float64(v / 1000.)
+    end_tag()
+
+  // tag 32 -- URIs
+  useEncoderFor @ encoders, new URL('ws://h'), (v, ctx) => ::
+    const end_tag = ctx.tag(32)
+    ctx.add_utf8(v.toString())
+    end_tag()
+
+  // tag 258 -- Sets (explicit type)
+  useEncoderFor @ encoders, new Set(), (v, ctx) => ::
+    const end_tag = ctx.tag(258)
+    ctx.list(v, v.size)
+    end_tag()
+
+  // tag 259 -- Maps (explicit type)
+  useEncoderFor @ encoders, new Map(), (v, ctx) => ::
+    const end_tag = ctx.tag(259)
+    ctx.pairs(v.entries(), v.size)
+    end_tag()
 
   return encoders
-
-function encode_epoch_date(v, ctx) ::
-  const end_tag = ctx.tag(1)
-  ctx.float64(v / 1000.)
-  end_tag()
-
-function encode_uri_extension(v, ctx) ::
-  const end_tag = ctx.tag(32)
-  ctx.add_utf8(v.toString())
-  end_tag()
-
-function encode_set_extension(v, ctx) ::
-  const end_tag = ctx.tag(258)
-  ctx.list(v, v.size)
-  end_tag()
-
-function encode_map_extension(v, ctx) ::
-  // TODO: select tag id for specific Map type
-  // ctx.tag(???)
-  ctx.pairs(v.entries(), v.size)
 

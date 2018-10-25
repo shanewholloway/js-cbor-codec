@@ -1,7 +1,9 @@
 import { CBOREncoderFull } from './encode/full.jsy'
-export * from './encode/full.jsy'
 
 export const encode = new CBOREncoderFull().encode
-export const cbor_u8_encode = encode
-export default encode
+
+export ::
+  CBOREncoderFull,
+  encode as cbor_encode,
+  encode as default,
 

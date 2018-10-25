@@ -1,7 +1,7 @@
 import decode_types from './types.jsy'
 export * from './types.jsy'
 
-import { U8DecodeCtx, decode_jump, decode_basic_jump } from './jump.jsy'
+import { U8DecodeCtx, decode_jump } from './jump.jsy'
 export * from './jump.jsy'
 
 
@@ -10,37 +10,104 @@ export class CBORDecoderBasic ::
   static iter_decode(u8) :: return new this().iter_decode(u8)
 
   static options(options) ::
-    if options ::
-      class CBORDecoder_ extends this ::
-      return CBORDecoder_.compile(options)
-    else return this
+    return (class extends this {}).compile(options)
 
   static compile(options) ::
-    const p = this.prototype
-    p.jmp = decode_jump @ options, this.jmp
-
-    if options.types ::
-      p.types = Object.assign @
-        Object.create(p.types || null),
-        options.types
-
-    p.U8Context = U8DecodeCtx.subclass @
-      p.types, p.jmp, options.unknown
-
+    this.prototype.compile(options)
     return this
 
-  constructor() ::
-    const ctxFromU8 = this.U8Context.fromU8.bind(this.U8Context)
+  constructor(options) ::
+    if null != options ::
+      this.compile(options)
 
-    this.decode = u8 => ctxFromU8(u8, this.types).decode()
-    this.iter_decode = u8 => ctxFromU8(u8, this.types).iter_decode()
+    this.decode = u8 => this._ctxFromU8(u8, this.types).decode()
+    this.iter_decode = u8 => this._ctxFromU8(u8, this.types).iter_decode()
+
+  compile(options) ::
+    this.jmp = decode_jump @ options, this.jmp
+
+    if options.types ::
+      this.types = Object.assign @
+        Object.create(this.types || null),
+        options.types
+
+    this._ctxFromU8 =
+      (this.U8DecodeCtx || U8DecodeCtx)
+        .subclass @ this.types, this.jmp, options.unknown
+      .fromU8
+
+    return this
 
 
 CBORDecoderBasic.compile @:
   types: decode_types
-  jmp: decode_basic_jump()
 
 
 export class CBORDecoder extends CBORDecoderBasic ::
-CBORDecoder.compile @: types: decode_types
+
+CBORDecoder.compile @:
+  types: decode_types
+  tags: basic_tags @ new Map()
+
+
+export function basic_tags(tags_lut) ::
+  // from https://tools.ietf.org/html/rfc7049#section-2.4
+
+  // Standard date/time string; see Section 2.4.1
+  tags_lut.set @ 0, () => ts_sz => new Date @ ts_sz
+  // Epoch-based date/time; see Section 2.4.1
+  tags_lut.set @ 1, () => seconds => new Date @ seconds * 1000
+
+  // Positive bignum; see Section 2.4.2
+  // tags_lut.set @ 2, () => v => v
+
+  // Negative bignum; see Section 2.4.2
+  // tags_lut.set @ 3, () => v => v
+
+  // Decimal fraction; see Section 2.4.3
+  // tags_lut.set @ 4, () => v => v
+
+  // Bigfloat; see Section 2.4.3
+  // tags_lut.set @ 5, () => v => v
+
+  // Expected conversion to base64url encoding; see Section 2.4.4.2
+  // tags_lut.set @ 21, () => v => v
+
+  // Expected conversion to base64 encoding; see Section 2.4.4.2
+  // tags_lut.set @ 22, () => v => v
+
+  // Expected conversion to base16 encoding; see Section 2.4.4.2
+  // tags_lut.set @ 23, () => v => v
+
+  // Encoded CBOR data item; see Section 2.4.4.1
+  tags_lut.set @ 24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx)
+
+  // URI; see Section 2.4.4.3
+  tags_lut.set @ 32, () => url_sz => new URL(url_sz)
+
+  // base64url; see Section 2.4.4.3
+  //tags_lut.set @ 33, () => v => v
+
+  // base64; see Section 2.4.4.3
+  //tags_lut.set @ 34, () => v => v
+
+  // Regular expression; see Section 2.4.4.3
+  //tags_lut.set @ 35, () => v => v
+
+  // MIME message; see Section 2.4.4.3
+  //tags_lut.set @ 36, () => v => v
+
+  // Self-describe CBOR; see Section 2.4.5
+  tags_lut.set @ 55799, () => ::
+
+
+  // EXTENSIONS
+
+  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+  tags_lut.set @ 258, ctx => :: ctx.pushTypes('Set')
+
+  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+  tags_lut.set @ 259, ctx => :: ctx.pushTypes('Map')
+
+  return tags_lut
 

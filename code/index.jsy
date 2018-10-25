@@ -1,3 +1,16 @@
-export * from './cbor_encode.jsy'
-export * from './cbor_decode.jsy'
+export * from './encode/index.jsy'
+export ::
+  default as encode,
+  default as cbor_encode,
+from './encode.jsy'
+
+
+export * from './decode/index.jsy'
+export ::
+  default as decode,
+  default as cbor_decode,
+from './decode.jsy'
+
+
 export * from './u8_utils.jsy'
+

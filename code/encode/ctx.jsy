@@ -1,6 +1,5 @@
 import { utf8_to_u8, as_u8_buffer, u8_concat } from '../u8_utils.jsy'
 import { bind_encode_dispatch } from './jump.jsy'
-export { _obj_kind_ } from './jump.jsy'
 
 const W0=0, W1=24, W2=25, W4=26, W8=27 
 
@@ -146,6 +145,16 @@ export function bind_encoder_context(stream) ::
   bind_encode_dispatch(ctx, cbor_encode)
   return cbor_encode
 
+  function cbor_encode(v, opt) ::
+    if undefined === opt || null === opt ::
+      ctx.encode(v)
+    else if true === opt || 'number' === typeof opt ::
+      ctx.tagEncode(opt, v)
+    else if opt.tag ::
+      ctx.tagEncode(opt.tag, v)
+    return ctx.flush()
+
+
   function add_int(mask, v) ::
     if v <= 0xffff ::
       if v < 24 :: // tiny
@@ -219,17 +228,8 @@ export function bind_encoder_context(stream) ::
     else return stream.flush(null)
 
 
-  function cbor_encode(v, opt) ::
-    if undefined === opt || null === opt ::
-      ctx.encode(v)
-    else if true === opt || 'number' === typeof opt ::
-      ctx.tagEncode(opt, v)
-    else if opt.tag ::
-      ctx.tagEncode(opt.tag, v)
-    return ctx.flush()
 
-
-function u8concat_stream() ::
+export function u8concat_stream() ::
   let blocks = []
   return @{}
     write(blk) :: blocks.push(blk)
