@@ -1,10 +1,9 @@
-import { CBORDecoder, CBORDecoderBasic } from './decode/index.jsy'
+import { CBORDecoder } from './decode/index.jsy'
 
 export const decode = new CBORDecoder().decode
 
 export ::
   CBORDecoder,
-  CBORDecoderBasic,
   decode as cbor_decode,
   decode as default,
 

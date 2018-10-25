@@ -83,7 +83,7 @@ describe @ 'Encode CBOR Tags', @=> ::
     assert.equal @ u8_to_hex(u8), 'c1fb41d452d9ec200000'
 
     const rt = CBORDecoder.decode(u8)
-    assert.ok @ rt instanceof Date
+    assert.ok @ rt instanceof Date, 'Not a Date instance'
     assert.equal @ +v, +rt
 
   it @ 'Tag 32 -- URI; see Section 2.4.4.3', @=> ::
@@ -93,13 +93,12 @@ describe @ 'Encode CBOR Tags', @=> ::
     assert.equal @ u8_to_hex(u8), 'd8207818687474703a2f2f6578616d706c652e636f6d2f703f713d61'
 
     const rt = CBORDecoder.decode(u8)
-    assert.ok @ rt instanceof URL
+    assert.ok @ rt instanceof URL, 'Not a URL instance'
     assert.equal @ v.toString(), rt.toString()
 
   it @ 'Tag 55799 -- Self-describe CBOR; see Section 2.4.5', @=> ::
     const v = @[] 1, 2, 3
     const u8 = new CBOREncoder().encode @ v, @{} tag: true
-    console.log @ u8
 
     assert.equal @ u8_to_hex(u8), 'd9d9f783010203'
 
@@ -113,6 +112,40 @@ describe @ 'Encode CBOR Tags', @=> ::
     assert.equal @ u8_to_hex(u8), 'd9010283010203'
 
     const rt = CBORDecoder.decode(u8)
-    assert.ok @ rt instanceof Set
+    assert.ok @ rt instanceof Set, 'Not a Set instance'
     assert.deepEqual @ rt, v
+
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- mixed keys', @=> ::
+    const v = new Map @#
+      @[] 1942, 'v1'
+      @[] 'k2', 'v2'
+      @[] [1,2,3], 'v3'
+
+    const u8 = CBOREncoder.encode(v)
+
+    assert.equal @ u8_to_hex(u8), 'd90103a3190796627631626b3262763283010203627633'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Map, 'Not a Map instance'
+    assert.equal @ rt.size, 3
+    assert.equal @ rt.get(1942), 'v1'
+    assert.equal @ rt.get('k2'), 'v2'
+    assert.deepEqual @ Array.from(rt.entries()).sort(), Array.from(v.entries()).sort()
+
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- all string keys', @=> ::
+    const v = new Map @#
+      @[] 'k1', 'v1'
+      @[] 'k2', 'v2'
+
+    const u8 = CBOREncoder.encode(v)
+
+    assert.equal @ u8_to_hex(u8), 'd90103a2626b31627631626b32627632'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt instanceof Map, 'Not a Map instance'
+    assert.equal @ rt.size, 2
+    assert.equal @ rt.get('k1'), 'v1'
+    assert.equal @ rt.get('k2'), 'v2'
+    assert.deepEqual @ Array.from(rt.entries()).sort(), Array.from(v.entries()).sort()
+
 

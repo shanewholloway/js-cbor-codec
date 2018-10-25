@@ -57,3 +57,21 @@ describe @ 'Decode CBOR Tags', @=> ::
     assert.equal @ s.size, 3
     assert.equal @ s instanceof Set, true
 
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- mixed keys', @=> ::
+    const m = CBORDecoder.decode @ hex_to_u8 @
+      'D9 0103 A3 190796 627631 626b32 627632 83010203 627633'
+
+    assert.ok @ m instanceof Map
+    assert.equal @ m.size, 3
+    assert.equal @ m.get(1942), 'v1'
+    assert.equal @ m.get('k2'), 'v2'
+
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- all string keys', @=> ::
+    const m = CBORDecoder.decode @ hex_to_u8 @
+      'D9 0103 A2 626B31 627631 626B32 627632'
+
+    assert.ok @ m instanceof Map
+    assert.equal @ m.size, 2
+    assert.equal @ m.get('k1'), 'v1'
+    assert.equal @ m.get('k2'), 'v2'
+

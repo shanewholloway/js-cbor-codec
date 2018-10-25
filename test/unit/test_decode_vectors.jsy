@@ -12,10 +12,10 @@ import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
 import float16 from 'cbor-codec/esm/float16.js'
 
 #IF PLAT_NODEJS
-  import { CBORDecoderBasic } from 'cbor-codec/esm/decode.js'
+  import { CBORDecoderBasic } from 'cbor-codec/esm/index.js'
 
 #ELIF PLAT_WEB
-  import { CBORDecoderBasic } from 'cbor-codec/esm/web/decode.js'
+  import { CBORDecoderBasic } from 'cbor-codec/esm/web/index.js'
 
 
 function tag_as_diagnostic(decoder, tag) ::
@@ -40,10 +40,11 @@ const CBORDecoder = CBORDecoderBasic.options @:
     float16
     bytes(u8) :: return `h'${u8_to_hex(u8)}'`
     bytes_stream(u8) ::
-      let res = []
-      return function (done, i, h_u8) ::
-        if done :: return `(_ ${res.join(', ')})`
-        res.push(h_u8)
+      const res = []
+      diag.done = @=> `(_ ${res.join(', ')})`
+      return diag
+
+      function diag(i, h_u8) :: res.push(h_u8)
 
 describe @ 'Decode CBOR Test Vectors', @=> ::
   for const test of test_vectors ::

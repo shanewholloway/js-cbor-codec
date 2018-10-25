@@ -1,53 +1,16 @@
-import decode_types from './types.jsy'
+import CBORDecoderBasic from './basic.jsy'
+import { decode_types, decode_Map, decode_Set } from './types.jsy'
+
 export * from './types.jsy'
-
-import { U8DecodeCtx, decode_jump } from './jump.jsy'
 export * from './jump.jsy'
-
-
-export class CBORDecoderBasic ::
-  static decode(u8) :: return new this().decode(u8)
-  static iter_decode(u8) :: return new this().iter_decode(u8)
-
-  static options(options) ::
-    return (class extends this {}).compile(options)
-
-  static compile(options) ::
-    this.prototype.compile(options)
-    return this
-
-  constructor(options) ::
-    if null != options ::
-      this.compile(options)
-
-    this.decode = u8 => this._ctxFromU8(u8, this.types).decode()
-    this.iter_decode = u8 => this._ctxFromU8(u8, this.types).iter_decode()
-
-  compile(options) ::
-    this.jmp = decode_jump @ options, this.jmp
-
-    if options.types ::
-      this.types = Object.assign @
-        Object.create(this.types || null),
-        options.types
-
-    this._ctxFromU8 =
-      (this.U8DecodeCtx || U8DecodeCtx)
-        .subclass @ this.types, this.jmp, options.unknown
-      .fromU8
-
-    return this
-
-
-CBORDecoderBasic.compile @:
-  types: decode_types
-
 
 export class CBORDecoder extends CBORDecoderBasic ::
 
 CBORDecoder.compile @:
   types: decode_types
   tags: basic_tags @ new Map()
+
+export default CBORDecoder
 
 
 export function basic_tags(tags_lut) ::
@@ -104,10 +67,10 @@ export function basic_tags(tags_lut) ::
   // EXTENSIONS
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 258, ctx => :: ctx.pushTypes('Set')
+  tags_lut.set @ 258, ctx => :: ctx.pushTypes @ decode_Set
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 259, ctx => :: ctx.pushTypes('Map')
+  tags_lut.set @ 259, ctx => :: ctx.pushTypes @ decode_Map
 
   return tags_lut
 

@@ -10,18 +10,23 @@ export class U8DecodeCtx ::
     const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown)
 
     Object.assign @ U8DecodeCtx_.prototype, @{}
-      nextValue, types, decode_types: types
+      nextValue, decode_types: types, types
     return U8DecodeCtx_
 
 
   static get fromU8() ::
-    return (u8, types) => ::
-      const inst = new this()
-      inst.u8 = u8 = as_u8_buffer(u8)
-      inst.idx = 0
+    const inst0 = new this()
+    const inst0_types = inst0.decode_types
 
-      if types !== inst.types ::
-        inst.decode_types = inst.types = types
+    return (u8, types) => ::
+      const inst = @{}
+        __proto__: inst0
+        idx: 0, u8: as_u8_buffer(u8)
+        _popTypes: noop
+
+      if types !== inst0_types ::
+        inst.decode_types = types
+        inst.types = types
       return inst
 
   static bindNextValue(jmp, unknown) ::
@@ -29,19 +34,20 @@ export class U8DecodeCtx ::
       unknown = error_unknown
 
     return function nextValue() ::
+      const doneTypes = this._popTypes()
+
       const type_b = this.u8[ this.idx ++ ]
       if undefined === type_b ::
         throw cbor_done_sym
 
-      if 0 !== this.typestack.length ::
-        this.types = this.typestack.pop()
-
       const decode = jmp[type_b] || unknown
-      return decode(this, type_b)
+      const res = decode(this, type_b)
+
+      return undefined === doneTypes
+        ? res : doneTypes(res)
 
   fromNestedU8(u8) ::
-    return this.constructor.fromU8 @
-      u8, this.decode_types
+    return this.constructor.fromU8 @ u8, this.decode_types
 
   decode() ::
     try ::
@@ -59,13 +65,17 @@ export class U8DecodeCtx ::
       if cbor_done_sym === e :: return
       throw e
 
-  pushTypes(types) ::
-    if 'string' === typeof types ::
-      types = this.decode_types[types]
+  pushTypes(overlay_types) ::
+    let {types, _popTypes} = this
 
-    this.typestack = this.typestack
-      .concat @# this.types, types
-    this.types = types
+    if noop === _popTypes ::
+      _popTypes = () => ::
+        this.types = types
+
+    this._popTypes = @=> ::
+      this._popTypes = _popTypes
+      this.types = overlay_types
+    return types
 
   move(byteWidth) ::
     const idx0 = this.idx
@@ -75,9 +85,8 @@ export class U8DecodeCtx ::
     this.idx = idx_next
     return idx0
 
-U8DecodeCtx.prototype.typestack = []
 
-
+function noop() ::
 function error_unknown(ctx, type_b) ::
   throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
 
@@ -179,22 +188,22 @@ export const cbor_eoc_sym = Symbol('CBOR-EOC')
 
 // cbor size/value interpreters
 function _cbor_tiny(as_type) ::
-  return function (ctx, type_b) ::
+  return function w0_as(ctx, type_b) ::
     return as_type @ ctx, type_b & 0x1f
 
 function _cbor_w1(as_type) ::
-  return function (ctx) ::
+  return function w1_as(ctx) ::
     const idx = ctx.move(1)
     return as_type @ ctx, ctx.u8[idx]
 
 function _cbor_w2(as_type) ::
-  return function (ctx) ::
+  return function w2_as(ctx) ::
     const u8 = ctx.u8, idx = ctx.move(2)
     const v = (u8[idx] << 8) | u8[idx+1]
     return as_type @ ctx, v
 
 function _cbor_w4(as_type) ::
-  return function (ctx) ::
+  return function w4_as(ctx) ::
     const u8 = ctx.u8, idx = ctx.move(4)
 
     const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
@@ -232,21 +241,23 @@ function as_list(ctx, len) ::
   if 0 === len ::
     return ctx.types.empty_list()
 
-  const res = ctx.types.list(len)
+  const accum = ctx.types.list(len)
   for let i=0; i<len; i++ ::
-    res @ false, i, ctx.nextValue()
-  return res(true)
+    accum @ i, ctx.nextValue()
+
+  return undefined === accum.done ? accum.res : accum.done()
 
 function as_map(ctx, len) ::
   if 0 === len ::
     return ctx.types.empty_map()
 
-  const res = ctx.types.map(len)
+  const accum = ctx.types.map(len)
   for let i=0; i<len; i++ ::
     const key = ctx.nextValue()
     const value = ctx.nextValue()
-    res @ false, key, value
-  return res(true)
+    accum @ key, value
+
+  return undefined === accum.done ? accum.res : accum.done()
 
 
 // streaming
@@ -256,15 +267,17 @@ function as_stream(ctx, accum) ::
   while true ::
     const value = ctx.nextValue()
     if cbor_break_sym === value ::
-      return accum @ true
-    accum @ false, i++, value
+      return undefined === accum.done ? accum.res : accum.done()
+
+    accum @ i++, value
 
 function as_pair_stream(ctx, accum) ::
   while true ::
     const key = ctx.nextValue()
     if cbor_break_sym === key ::
-      return accum @ true
-    accum @ false, key, ctx.nextValue()
+      return undefined === accum.done ? accum.res : accum.done()
+
+    accum @ key, ctx.nextValue()
 
 
 // primitives

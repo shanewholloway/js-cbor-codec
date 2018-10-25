@@ -11,93 +11,75 @@ export const decode_types = @{}
   float16(u8) :: return u8
 
   bytes(u8) :: return u8
-  bytes_stream(ctx) ::
-    let res = []
-    return function (done, i, u8) ::
-      if done ::
-        const ans = u8_concat(res)
-        res = null
-        return ans
-
-      res.push(u8)
+  bytes_stream: build_Bytes
 
   utf8(u8) :: return u8_to_utf8 @ u8
-  utf8_stream(ctx) ::
-    let res = []
-    return function (done, i, str) ::
-      if done ::
-        const ans = res.join('')
-        res = null
-        return ans
-
-      res.push(str)
+  utf8_stream: build_UTF8
 
 
   empty_list() :: return []
-
-  list(ctx, len) ::
-    let res = len ? new Array(len) : []
-    return function (done, i, v) ::
-      if done :: return res
-      res[i] = v
-
-  list_stream(ctx) ::
-    let res = []
-    return function (done, i, v) ::
-      if done :: return res
-      res.push(v)
-
+  list: build_Array
+  list_stream: build_Array
 
   empty_map() :: return {}
-
-  map(ctx) ::
-    let res = {}
-    return function (done, k, v) ::
-      if done :: return res
-      res[k] = v
-
-  map_stream(ctx) ::
-    let res = {}
-    return function (done, k, v) ::
-      if done :: return res
-      res[k] = v
+  map: build_Obj
+  map_stream: build_Obj
 
 
-  Map: @{}
-    __proto__: null
 
-    empty_map() :: return new Map()
+function _withResultFn(res, fn, done) ::
+  fn = fn.bind(res)
+  fn.done = done
+  fn.res = res
+  return fn
 
-    map(ctx) ::
-      let res = new Map()
-      return function (done, k, v) ::
-        if done :: return res
-        res.set(k, v)
+function _obj_push(i, v) :: this.push(v)
+function _bytes_done() ::
+  const res = this.res; this.res = null
+  return u8_concat(res)
 
-    map_stream(ctx) ::
-      let res = new Map()
-      return function (done, k, v) ::
-        if done :: return res
-        res.set(k, v)
+function build_Bytes(ctx) ::
+  return _withResultFn @ [], _obj_push, _bytes_done
 
-
-  Set: @{}
-    __proto__: null
-
-    empty_list() :: return new Set()
-
-    list(ctx) ::
-      let res = new Set()
-      return function (done, i, v) ::
-        if done :: return res
-        res.add(v)
-
-    list_stream(ctx) ::
-      let res = new Set()
-      return function (done, i, v) ::
-        if done :: return res
-        res.add(v)
+function _utf8_done() ::
+  const res = this.res; this.res = null
+  return res.join('')
+function build_UTF8(ctx) ::
+  return _withResultFn @ [], _obj_push, _utf8_done
 
 
-export default decode_types
+
+function _withResult(res, fn) ::
+  fn = fn.bind(res)
+  fn.res = res
+  return fn
+
+function _obj_set(k, v) :: this[k] = v
+
+function build_Obj(ctx) ::
+  return _withResult @ {}, _obj_set
+
+function build_Array(ctx, len) ::
+  const res = len ? new Array(len) : []
+  return _withResult @ res, _obj_set
+
+
+export const decode_Map = @{}
+  empty_map() :: return new Map()
+  map: build_Map
+  map_stream: build_Map
+
+function _map_set(k, v) :: this.set(k, v)
+function build_Map(ctx) ::
+  return _withResult @ new Map(), _map_set
+
+
+export const decode_Set = @{}
+  empty_list() :: return new Set()
+  list: build_Set
+  list_stream: build_Set
+
+function _set_add(k, v) :: this.add(v)
+function build_Set(ctx) ::
+  return _withResult @ new Set(), _set_add
 
