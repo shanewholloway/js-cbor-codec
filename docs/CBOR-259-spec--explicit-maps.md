@@ -48,13 +48,15 @@ RFC-7049, as well as [Tag 258's explicit Set datatype][tag-258].
 
 Given the following JavaScript instance:
 
-    ```javascript
-    new Map( [ [1942, 'v1'], ['k2', 'v2'], [[1,2,3], 'v3'] ] )
-    ```
+```javascript
+new Map( [ [1942, 'v1'], ['k2', 'v2'], [[1,2,3], 'v3'] ] )
+```
 
 The equivalent value as a set in CBOR diagnostic notation is
 
-    259({1942: "v1", "k2": "v2", [1, 2, 3]: "v3"})
+```javascript
+259({1942: "v1", "k2": "v2", [1, 2, 3]: "v3"})
+```
 
 And its encoding is:
 
@@ -79,13 +81,15 @@ And its encoding is:
 
 Given the following JavaScript instance:
 
-    ```javascript
-    new Map( [ ['k1', 'v1'], ['k2', 'v2'] ] )
-    ```
+```javascript
+new Map( [ ['k1', 'v1'], ['k2', 'v2'] ] )
+```
 
 The equivalent value as a set in CBOR diagnostic notation is
 
-    259({"k1": "v1", "k2": "v2"})
+```javascript
+259({"k1": "v1", "k2": "v2"})
+```
 
 And its encoding is:
 
