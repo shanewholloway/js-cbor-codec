@@ -11,7 +11,7 @@
     "rollup-plugin-node-resolve": "^3.3.0"
   },
   "scripts": {
-    "prebuild": "test -d ./node_modules || npm -s install",
+    "prebuild": "test -d ./node_modules || npm ci",
     "build": "rollup --config",
     "watch": "npm -s run build -- --watch",
     "pretest": "npm -s run build",
