@@ -5,3 +5,5 @@ import './unit/test_decode_vectors.jsy'
 
 import './unit/test_encode_basic_tags.jsy'
 import './unit/test_encode_vectors.jsy'
+
+import './unit/test_large.jsy'

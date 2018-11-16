@@ -194,29 +194,26 @@ export function bind_encoder_context(stream) ::
 
   function next_frame(bkind, frameWidth) ::
     idx_frame = idx_next; idx_next += frameWidth
-
-    u8_tip[idx_frame] = bkind
     if idx_next > blockSize ::
       stream.write @ u8_tip.slice(0, idx_frame)
       idx_frame = 0
       idx_next = frameWidth
 
+    u8_tip[idx_frame] = bkind
     return 1 + idx_frame
 
 
   function raw_frame(buf) ::
     const len = buf.byteLength
-
     idx_frame = idx_next; idx_next += len
     if idx_next <= blockSize ::
       u8_tip.set(buf, idx_frame)
       return
 
     if 0 !== idx_frame ::
-      stream.write @ u8_tip.slice(0, idx_frame), buf
-      idx_frame = 0
-      idx_next = len
+      stream.write @ u8_tip.slice(0, idx_frame)
 
+    idx_frame = idx_next = 0
     stream.write @ buf
 
 
@@ -237,7 +234,8 @@ export function u8concat_stream() ::
       if 0 === blocks.length ::
         return blk
 
-      blocks.push(blk)
+      if null !== blk ::
+        blocks.push(blk)
       const u8 = u8_concat(blocks)
       blocks = []
       return u8
