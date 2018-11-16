@@ -29,11 +29,10 @@ describe @ 'Roundtrip Large Objects', @=> ::
 
   it @ `['slot'] * 256`, @=> ::
 
-    const sa_256 = Array(255).fill('slot')
+    const sa_256 = Array(256).fill('slot')
 
     const enc_val = cbor_encode @ sa_256
-    //assert.equal @ enc_val.byteLength, 1 + 2 + 256 * (1 + 4)
-    assert.equal @ enc_val.byteLength, 1 + 1 + 255 * (1 + 4)
+    assert.equal @ enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4)
 
     const dec_val = cbor_decode @ enc_val
     assert.deepEqual @ dec_val, sa_256
@@ -45,7 +44,8 @@ describe @ 'Roundtrip Large Objects', @=> ::
     const sa_70_256 = Array(70).fill(sa_256)
 
     const enc_val = cbor_encode @ sa_70_256
-    //assert.equal @ enc_val.byteLength, 0
+    assert.equal @ enc_val.byteLength,
+      1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4))
 
     const dec_val = cbor_decode @ enc_val
     assert.deepEqual @ dec_val, sa_70_256
