@@ -16,8 +16,8 @@ export class CBORDecoderBasic ::
     if null != options ::
       this.compile(options)
 
-    this.decode = u8 => this._ctxFromU8(u8, this.types).decode()
-    this.iter_decode = u8 => this._ctxFromU8(u8, this.types).iter_decode()
+    this.decode = (u8, opt) => this._ctxFromU8(u8, this.types).decode(opt)
+    this.iter_decode = (u8, opt) => this._ctxFromU8(u8, this.types).iter_decode(opt)
 
   compile(options) ::
     this.jmp = decode_jump @ options, this.jmp

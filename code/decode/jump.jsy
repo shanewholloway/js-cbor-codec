@@ -55,7 +55,7 @@ export class U8DecodeCtx ::
         const idx0 = this.idx || 0
         const value = this.nextValue()
         const idx = this.idx
-        return {value, idx0, idx1}
+        return {value, idx0, idx}
 
       return this.nextValue()
     catch e ::
