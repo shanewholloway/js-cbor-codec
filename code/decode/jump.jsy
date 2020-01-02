@@ -49,18 +49,24 @@ export class U8DecodeCtx ::
   fromNestedU8(u8) ::
     return this.constructor.fromU8 @ u8, this.decode_types
 
-  decode() ::
+  decode(inc_location) ::
     try ::
+      if inc_location ::
+        const idx0 = this.idx || 0
+        const value = this.nextValue()
+        const idx = this.idx
+        return {value, idx0, idx1}
+
       return this.nextValue()
     catch e ::
       if cbor_done_sym === e ::
         e = new Error @ `End of content`
       throw e
 
-  *iter_decode() ::
+  *iter_decode(inc_location) ::
     try ::
       while true ::
-        yield this.nextValue()
+        yield this.nextValue(inc_location)
     catch e ::
       if cbor_done_sym === e :: return
       throw e
