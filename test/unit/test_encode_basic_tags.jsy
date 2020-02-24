@@ -1,13 +1,8 @@
 const { assert } = require('chai')
 
-import { u8_to_hex } from 'u8-utils/esm/hex'
-#IF PLAT_NODEJS
-  import { CBOREncoder } from 'cbor-codec/esm/encode.js'
-  import { CBORDecoder } from 'cbor-codec/esm/decode.js'
-
-#ELIF PLAT_WEB
-  import { CBOREncoder } from 'cbor-codec/esm/web/encode.js'
-  import { CBORDecoder } from 'cbor-codec/esm/web/decode.js'
+import { u8_to_hex } from 'u8-utils'
+import { CBOREncoder } from 'cbor-codec/esm/encode.mjs'
+import { CBORDecoder } from 'cbor-codec/esm/decode.mjs'
 
 
 describe @ 'Encode ArrayBuffers and TypedArrays', @=> ::

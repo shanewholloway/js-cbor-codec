@@ -1,8 +1,5 @@
 import { as_u8_buffer } from '../u8_utils.jsy'
 
-#IF PLAT_NODEJS
-  const {URL} = require('url')
-
 export class U8DecodeCtx ::
 
   static subclass(types, jmp, unknown) ::

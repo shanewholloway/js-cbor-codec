@@ -1,5 +1,6 @@
 import rpi_jsy from 'rollup-plugin-jsy-lite'
-import rpi_resolve from 'rollup-plugin-node-resolve'
+import rpi_resolve from '@rollup/plugin-node-resolve'
+import { terser as rpi_terser } from 'rollup-plugin-terser'
 
 import pkg from './package.json'
 const pkg_name = pkg.name.replace('-', '_')
@@ -8,55 +9,42 @@ const configs = []
 export default configs
 
 const sourcemap = true
+const external = []
 
-const plugins = [ rpi_resolve({main: true, modules: true}), ]
-const plugins_generic = [ rpi_jsy() ].concat(plugins)
-const plugins_nodejs = [ rpi_jsy({defines: {PLAT_NODEJS: true}}) ].concat(plugins)
-const plugins_web = [ rpi_jsy({defines: {PLAT_WEB: true}}) ].concat(plugins)
-
-import { terser as rpi_terser } from 'rollup-plugin-terser'
-const plugins_min = plugins_web.concat([ rpi_terser({}) ])
+const plugins = [ rpi_jsy(), rpi_resolve({main: true, modules: true}), ]
+const plugins_min = [...plugins, rpi_terser({}) ]
 
 
-add_jsy('index', true)
-add_jsy('full', true)
-add_jsy('encode', true)
-add_jsy('encode_full', true)
-add_jsy('decode', true)
+add_jsy('index')
+add_jsy('full')
+add_jsy('encode')
+add_jsy('encode_full')
+add_jsy('decode')
 add_jsy('float16')
 
 // publish leveldb as package that reuses other modules
 configs.push({
   input: `code/leveldb.jsy`,
-  plugins: plugins_generic, external: ()=>true,
+  plugins, external: ()=>true,
   output: [
     { file: `cjs/leveldb.js`, format: 'cjs', exports:'default', sourcemap },
-    { file: `esm/leveldb.js`, format: 'es', sourcemap },
-    { file: `esm/web/leveldb.js`, format: 'es', sourcemap },
+    { file: `esm/leveldb.mjs`, format: 'es', sourcemap },
 ]})
 
 
-function add_jsy(src_name, inc_min, {external}={}) {
-  if (null == external) external = []
-  const module_name = inc_min ? pkg_name : `${pkg_name}-${src_name}`
+function add_jsy(src_name, opt={}) {
+  let module_name = opt.module_name || `${pkg_name}_${src_name}`
 
-  if (plugins_nodejs)
-    configs.push({
-      input: `code/${src_name}.jsy`,
-      plugins: plugins_nodejs, external,
-      output: [
-        { file: `cjs/${src_name}.js`, format: 'cjs', exports:'named', sourcemap },
-        { file: `esm/${src_name}.js`, format: 'es', sourcemap } ]})
+  configs.push({
+    input: `code/${src_name}.jsy`,
+    plugins, external,
+    output: [
+      { file: `esm/${src_name}.mjs`, format: 'es', sourcemap },
+      { file: `cjs/${src_name}.cjs`, format: 'cjs', exports:'named', sourcemap },
+      { file: `umd/${src_name}.js`, format: 'umd', name:module_name, exports:'named', sourcemap },
+    ]})
 
-  if (plugins_web)
-    configs.push({
-      input: `code/${src_name}.jsy`,
-      plugins: plugins_web, external,
-      output: [
-        { file: `umd/${src_name}${inc_min ? '.dbg' : ''}.js`, format: 'umd', name:module_name, exports:'named', sourcemap },
-        { file: `esm/web/${src_name}.js`, format: 'es', sourcemap } ]})
-
-  if (inc_min && 'undefined' !== typeof plugins_min)
+  if (plugins_min)
     configs.push({
       input: `code/${src_name}.jsy`,
       plugins: plugins_min, external,

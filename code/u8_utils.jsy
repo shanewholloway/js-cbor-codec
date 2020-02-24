@@ -6,9 +6,5 @@ export ::
   u8_to_utf8,
   utf8_to_u8,
 
-#IF PLAT_NODEJS
-  from 'u8-utils/esm'
-
-#ELIF PLAT_WEB
-  from 'u8-utils/esm/web'
+from 'u8-utils'
 

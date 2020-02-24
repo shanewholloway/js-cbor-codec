@@ -8,14 +8,9 @@ const test_vectors = [].concat @
   test_vectors_float16
   test_vectors_float32
 
-import { hex_to_u8, u8_to_hex } from 'u8-utils/esm/hex'
-import float16 from 'cbor-codec/esm/float16.js'
-
-#IF PLAT_NODEJS
-  import { CBORDecoderBasic } from 'cbor-codec/esm/index.js'
-
-#ELIF PLAT_WEB
-  import { CBORDecoderBasic } from 'cbor-codec/esm/web/index.js'
+import { hex_to_u8, u8_to_hex } from 'u8-utils'
+import float16 from 'cbor-codec/esm/float16.mjs'
+import { CBORDecoderBasic } from 'cbor-codec'
 
 
 function tag_as_diagnostic(decoder, tag) ::
