@@ -1,5 +1,4 @@
-import { encode } from './encode_full.js'
-import { decode } from './decode.js'
+const { encode, decode } = require('cbor-codec/cjs/full.cjs')
 
 // [LevelDB Encoding Format](https://github.com/level/codec#encoding-format)
 export default @{} type: 'cbor', buffer: true, encode, decode

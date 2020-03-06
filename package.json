@@ -1,6 +1,6 @@
 {
   "name": "cbor-codec",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CBOR Codec for NodeJS and the Web",
   "license": "BSD-2-Clause",
   "author": "Shane Holloway <shane.holloway@ieee.org>",
@@ -23,17 +23,24 @@
   "module": "./esm/index.mjs",
   "browser": "./umd/index.min.js",
   "exports": {
-    "import": "./esm/index.mjs",
-    "require": "./cjs/index.cjs"
+    "./": "./",
+    ".": {
+      "import": "./esm/index.mjs",
+      "require": "./cjs/index.cjs"
+    },
+    "./leveldb": {
+      "import": "./esm/leveldb.mjs",
+      "require": "./cjs/leveldb.cjs"
+    }
   },
   "dependencies": {},
   "devDependencies": {
     "@petamoriken/float16": "^1.1.1",
     "@rollup/plugin-node-resolve": "^7.1.1",
-    "rollup": "^1.31.1",
-    "rollup-plugin-jsy-lite": "^1.5.1",
+    "rollup": "^1.32.1",
+    "rollup-plugin-jsy-lite": "^1.5.2",
     "rollup-plugin-terser": "^5.2.0",
-    "u8-utils": "^0.3.4"
+    "u8-utils": "^0.3.5"
   },
   "scripts": {
     "clean": "rm -rf ./cjs/* ./esm/* ./umd/*",

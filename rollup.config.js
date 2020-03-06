@@ -27,7 +27,7 @@ configs.push({
   input: `code/leveldb.jsy`,
   plugins, external: ()=>true,
   output: [
-    { file: `cjs/leveldb.js`, format: 'cjs', exports:'default', sourcemap },
+    { file: `cjs/leveldb.cjs`, format: 'cjs', exports:'default', sourcemap },
     { file: `esm/leveldb.mjs`, format: 'es', sourcemap },
 ]})
 
