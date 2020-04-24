@@ -36,7 +36,6 @@ function _withResultFn(res, fn, done) ::
 function _obj_push(i, v) :: this.push(v)
 function _bytes_done() ::
   const res = this.res; this.res = null
-  console.log @ "HERE?", res, u8_concat(res)
   return u8_concat(res)
 
 function build_Bytes(ctx) ::
