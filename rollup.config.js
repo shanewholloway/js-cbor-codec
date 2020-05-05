@@ -48,5 +48,8 @@ function add_jsy(src_name, opt={}) {
     configs.push({
       input: `code/${src_name}.jsy`,
       plugins: plugins_min, external,
-      output: { file: `umd/${src_name}.min.js`, format: 'umd', name:module_name, exports:'named' }})
+      output: [
+        { file: `esm/${src_name}.min.mjs`, format: 'es' },
+        { file: `umd/${src_name}.min.js`, format: 'umd', name:module_name, exports:'named' },
+      ]})
 }
