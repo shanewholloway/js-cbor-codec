@@ -1,6 +1,6 @@
 {
   "name": "cbor-codec",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "CBOR Codec for NodeJS and the Web",
   "license": "BSD-2-Clause",
   "author": "Shane Holloway <shane.holloway@ieee.org>",
@@ -36,10 +36,10 @@
   "dependencies": {},
   "devDependencies": {
     "@petamoriken/float16": "^2.0.0",
-    "@rollup/plugin-node-resolve": "^8.0.0",
-    "rollup": "^2.10.5",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "rollup": "^2.32.0",
     "rollup-plugin-jsy-lite": "^1.7.1",
-    "rollup-plugin-terser": "^5.3.0",
+    "rollup-plugin-terser": "^7.0.2",
     "u8-utils": "^0.3.7"
   },
   "scripts": {
