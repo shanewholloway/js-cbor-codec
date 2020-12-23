@@ -3,6 +3,7 @@ esm/
 umd/
 dist/
 node_modules/
-test/__unittest*.js
+test/*unittest*.cjs.js
+test/*unittest*.iife.js
 npm-debug.log
 .hggitignore

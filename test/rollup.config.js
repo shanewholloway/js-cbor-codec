@@ -5,8 +5,8 @@ const plugins = [ rpi_jsy(), rpi_resolve() ]
 
 export default [
   { input: `./unittest.jsy`, plugins,
-    output: { file: './__unittest.cjs.js', format: 'cjs', sourcemap: false } },
+    output: { file: './mocha_unittest.cjs.js', format: 'cjs', sourcemap: false } },
 
   { input: `./unittest.jsy`, context: 'window', plugins,
-    output: { file: './__unittest.iife.js', format: 'iife', name: `test_cbor_codec`, sourcemap: false } },
+    output: { file: './browser_unittest.iife.js', format: 'iife', name: `test_cbor_codec`, sourcemap: false } },
 ]
