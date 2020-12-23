@@ -4,6 +4,7 @@
     "cbor-codec": "file:.."
   },
   "devDependencies": {
+    "@petamoriken/float16": "^2.0.0",
     "@rollup/plugin-node-resolve": "^11.0.1",
     "chai": "^4.2.0",
     "mocha": "^8.2.1",
