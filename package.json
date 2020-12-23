@@ -36,9 +36,9 @@
   "dependencies": {},
   "devDependencies": {
     "@petamoriken/float16": "^2.0.0",
-    "@rollup/plugin-node-resolve": "^9.0.0",
-    "rollup": "^2.32.0",
-    "rollup-plugin-jsy-lite": "^1.7.1",
+    "@rollup/plugin-node-resolve": "^11.0.1",
+    "rollup": "^2.35.1",
+    "rollup-plugin-jsy-lite": "^1.7.2",
     "rollup-plugin-terser": "^7.0.2",
     "u8-utils": "^0.3.7"
   },
