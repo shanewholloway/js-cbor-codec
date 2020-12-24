@@ -19,7 +19,7 @@ import {cbor_encode, cbor_decode} from "cbor-codec"
 const demo_data = {
   demo_cbor_support: new Date('2018-11-16T12:23:57-0700'),
   some_numbers: new Float32Array([
-    Math.PI, Math.SQRT2, Math.SQRT1_2, 
+    Math.PI, Math.SQRT2, Math.SQRT1_2,
     Math.LN10, Math.LN2, Math.E, Math.LOG10E, Math.LOG2E ])}
 
 let demo_u8 = cbor_encode(demo_data)
@@ -37,7 +37,7 @@ or direclty from HTML,
   const demo_data = {
     demo_cbor_support: new Date('2018-11-16T12:23:57-0700'),
     some_numbers: new Float32Array([
-      Math.PI, Math.SQRT2, Math.SQRT1_2, 
+      Math.PI, Math.SQRT2, Math.SQRT1_2,
       Math.LN10, Math.LN2, Math.E, Math.LOG10E, Math.LOG2E ])}
 
   let demo_u8 = cbor_encode(demo_data)
@@ -83,10 +83,8 @@ const demo_data = {
   demo_cbor_support: new Date('2018-11-16T12:23:57-0700'),
   some_numbers:
     new Float32Array([
-      Math.PI, 
-      Math.SQRT2, Math.SQRT1_2, 
-      Math.LN10, Math.LN2, 
-      Math.E, Math.LOG10E, Math.LOG2E ]),
+      Math.PI, Math.SQRT2, Math.SQRT1_2,
+      Math.LN10, Math.LN2, Math.E, Math.LOG10E, Math.LOG2E ]),
 }
 
 let demo_u8 = cbor_encode(demo_data)
