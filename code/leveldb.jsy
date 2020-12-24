@@ -1,5 +1,8 @@
 const { encode, decode } = require('cbor-codec/cjs/full.cjs')
 
 // [LevelDB Encoding Format](https://github.com/level/codec#encoding-format)
-export default @{} type: 'cbor', buffer: true, encode, decode
+export default @{}
+  type: 'cbor', buffer: true,
+  encode: v => Buffer.from @ encode(v)
+  decode: buf => decode @ Uint8Array.from(buf)
 
