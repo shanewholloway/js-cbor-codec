@@ -7,7 +7,7 @@
 ### Decode
 
 - `cbor_decode(u8[, options])` decodes a CBOR encoded data frame into objects and values.
-- `cbor_iter_decode(u8[, options])` decodes one or more CBOR encoded data frames into objects and values.
+- `cbor_iter_decode(u8[, options])` decodes one or more CBOR encoded data frames into objects and values as a generator.
 - `class CBORDecoder`
 - `decode(u8[, options])` is an alias for `cbor_decode`
 - `iter_decode(u8[, options])` is an alias for `cbor_iter_decode`

@@ -61,10 +61,15 @@ export class U8DecodeCtx ::
       return this.nextValue()
     catch e ::
       if cbor_done_sym === e ::
-        e = new Error @ `End of content`
-        e.cbor_partial = @{}
-          __proto__: _loc_proto_,
-          idx0, idx: this.idx, incomplete: true
+        idx = this.idx
+        if idx0 == idx ::
+          e = new Error @ `End of content`
+
+        else ::
+          e = new Error @ `End of partial frame`
+          e.cbor_partial = @{}
+            __proto__: _loc_proto_,
+            idx0, idx, incomplete: true
       throw e
       
 
