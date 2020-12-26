@@ -2,8 +2,8 @@ import { decode_types } from './types.jsy'
 import { U8DecodeCtx, decode_jump } from './jump.jsy'
 
 export class CBORDecoderBasic ::
-  static decode(u8) :: return new this().decode(u8)
-  static iter_decode(u8) :: return new this().iter_decode(u8)
+  static decode(u8, opt) :: return new this().decode(u8, opt)
+  static iter_decode(u8, opt) :: return new this().iter_decode(u8, opt)
 
   static options(options) ::
     return (class extends this {}).compile(options)

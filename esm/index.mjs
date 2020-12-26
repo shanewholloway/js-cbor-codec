@@ -605,10 +605,13 @@ class U8DecodeCtx {
     const inst0_types = inst0.decode_types;
 
     return (u8, types) => {
+      u8 = as_u8_buffer(u8);
       const inst ={
         __proto__: inst0
-      , idx: 0, u8: as_u8_buffer(u8)
-      , _popTypes: noop$1};
+      , idx: 0, u8
+      , _popTypes: noop$1
+      , _loc_proto_:{
+          get u8() {return u8.slice(this.idx0, this.idx)} } };
 
       if (types !== inst0_types) {
         inst.decode_types = types;
@@ -624,6 +627,7 @@ class U8DecodeCtx {
 
       const type_b = this.u8[ this.idx ++ ];
       if (undefined === type_b) {
+        this.idx--;
         throw cbor_done_sym}
 
       const decode = jmp[type_b] || unknown;
@@ -641,20 +645,41 @@ class U8DecodeCtx {
         const idx0 = this.idx || 0;
         const value = this.nextValue();
         const idx = this.idx;
-        return {value, idx0, idx}}
+        return {__proto__: this._loc_proto_, value, idx0, idx}}
 
       return this.nextValue()}
     catch (e) {
       if (cbor_done_sym === e) {
-        e = new Error(`End of content`); }
+        e = new Error(`End of content`);
+        e.cbor_partial ={
+          __proto__: _loc_proto_,
+          idx0, idx: this.idx, incomplete: true}; }
       throw e} }
 
+
   *iter_decode(inc_location) {
+    let {_loc_proto_} = this;
+    let idx0, idx = this.idx || 0;
+
     try {
       while (true) {
-        yield this.nextValue(inc_location);} }
+        idx0 = idx;
+        const value = this.nextValue();
+        idx = this.idx;
+
+        yield inc_location
+          ? { __proto__: _loc_proto_, idx0, idx, value }
+          : value;} }
+
     catch (e) {
-      if (cbor_done_sym === e) {return}
+      if (cbor_done_sym === e) {
+        idx = this.idx;
+        if (idx0 == idx) {return}
+
+        e = new Error(`End of partial frame`);
+        e.cbor_partial ={
+          __proto__: _loc_proto_,
+          idx0, idx, incomplete: true}; }
       throw e} }
 
   pushTypes(overlay_types) {
@@ -917,8 +942,8 @@ function bind_tag_dispatch(tags_lut) {
     return {tag, body: ctx.nextValue()} } }
 
 class CBORDecoderBasic {
-  static decode(u8) {return new this().decode(u8)}
-  static iter_decode(u8) {return new this().iter_decode(u8)}
+  static decode(u8, opt) {return new this().decode(u8, opt)}
+  static iter_decode(u8, opt) {return new this().iter_decode(u8, opt)}
 
   static options(options) {
     return (class extends this {}).compile(options)}
@@ -1022,5 +1047,5 @@ function basic_tags(tags_lut) {
 
 const {decode, iter_decode} = new CBORDecoder();
 
-export { CBORDecoder, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, U8DecodeCtx, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_break_sym, decode as cbor_decode, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, decode, decode_Map, decode_Set, decode_basic_jump, decode_jump, decode_types, encode, hex_to_u8, sym_cbor, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, useEncoderFor, utf8_to_u8 };
+export { CBORDecoder, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, U8DecodeCtx, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_break_sym, decode as cbor_decode, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_basic_jump, decode_jump, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, useEncoderFor, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

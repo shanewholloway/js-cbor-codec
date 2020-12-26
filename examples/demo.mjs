@@ -22,7 +22,10 @@ let known_hex = (
   '5820db0f4940f304b53ff304353f8e5d1340187231' +
   '3f54f82d40d95bde3e3baab83f')
 
-console.log('Matching known:', demo_hex === known_hex)
+
+if (demo_hex !== known_hex)
+  throw new Error("Mismatch in CBOR encoding -- or maybe the demo changed...")
+
 
 console.log('Known decoded:', cbor_decode(hex_to_u8(known_hex)))
 
