@@ -1,0 +1,73 @@
+const { assert } = require('chai')
+
+import { hex_to_u8 } from 'u8-utils'
+import { CBORAsyncDecoder } from 'cbor-codec/esm/decode_async.mjs'
+
+
+describe @ 'Async Decode CBOR Tags', @::>
+  it @ 'Tag 0 -- Standard date/time string; see Section 2.4.1', @::>
+    const ans = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'c0 74 323031332d30332d32315432303a30343a30305a'
+
+    assert.equal @ ans.toISOString(), '2013-03-21T20:04:00.000Z'
+
+  it @ 'Tag 1 -- Epoch-based date/time; see Section 2.4.1', @::>
+    const ans = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'c1 fb 41d452d9ec200000'
+
+    assert.equal @ ans.toISOString(), '2013-03-21T20:04:00.500Z'
+
+  it @ 'Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', @::>
+    const u8 = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'd818 456449455446'
+
+    assert.deepEqual @ Array.from(u8), [ 100, 73, 69, 84, 70 ]
+    assert.equal @ typeof u8.decodeCBOR, 'function'
+
+    const ans = await u8.decodeCBOR()
+    assert.equal @ ans, 'IETF'
+
+  it @ 'Tag 32 -- URI; see Section 2.4.4.3', @::>
+    const url = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'd820 76687474703a2f2f7777772e6578616d706c652e636f6d'
+
+    assert.equal @ url.href, 'http://www.example.com/'
+    assert.equal @ url.origin, 'http://www.example.com'
+    assert.equal @ url.protocol, 'http:'
+    assert.equal @ url.pathname, '/'
+
+  it @ 'Tag 55799 -- Self-describe CBOR; see Section 2.4.5', @::>
+    const ans = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'D9 D9F7 83 01 02 03'
+
+    assert.deepEqual @ ans, [1,2,3]
+
+  it @ 'Tag 258 -- Sets for CBOR', @::>
+    const s = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'D9 0102 83 01 02 03'
+
+    assert.equal @ s.has(1), true
+    assert.equal @ s.has(2), true
+    assert.equal @ s.has(3), true
+
+    assert.equal @ s.size, 3
+    assert.equal @ s instanceof Set, true
+
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- mixed keys', @::>
+    const m = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'D9 0103 A3 190796 627631 626b32 627632 83010203 627633'
+
+    assert.ok @ m instanceof Map
+    assert.equal @ m.size, 3
+    assert.equal @ m.get(1942), 'v1'
+    assert.equal @ m.get('k2'), 'v2'
+
+  it @ 'Tag 259 -- Explicit Maps for CBOR -- all string keys', @::>
+    const m = await CBORAsyncDecoder.decode @ hex_to_u8 @
+      'D9 0103 A2 626B31 627631 626B32 627632'
+
+    assert.ok @ m instanceof Map
+    assert.equal @ m.size, 2
+    assert.equal @ m.get('k1'), 'v1'
+    assert.equal @ m.get('k2'), 'v2'
+

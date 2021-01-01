@@ -1,10 +1,13 @@
-import { CBORDecoder } from './decode/index.jsy'
+import { CBORDecoder } from './decode_sync/index.jsy'
+export * from './decode_sync/index.jsy'
 
-export const {decode, iter_decode} = new CBORDecoder()
+const {decode, iter_decode} = new CBORDecoder()
 
-export ::
-  CBORDecoder,
+export {
+  iter_decode,
   iter_decode as cbor_iter_decode,
+
+  decode,
   decode as cbor_decode,
   decode as default,
-
+}

@@ -1,0 +1,79 @@
+import { U8DecodeBaseCtx, cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+
+export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
+
+  static bindNextValue(jmp, unknown) ::
+    if null == unknown ::
+      unknown = this._error_unknown
+
+    return function nextValue() ::
+      const doneTypes = this._popTypes()
+
+      const type_b = this.u8[ this.idx ++ ]
+      if undefined === type_b ::
+        this.idx--
+        throw cbor_done_sym
+
+      const decode = jmp[type_b] || unknown
+      const res = decode(this, type_b)
+
+      return undefined === doneTypes
+        ? res : doneTypes(res)
+
+
+  decode(inc_location) ::
+    try ::
+      if inc_location ::
+        const idx0 = this.idx || 0
+        const value = this.nextValue()
+        const idx = this.idx
+        return {__proto__: this._loc_proto_, value, idx0, idx}
+
+      return this.nextValue()
+    catch e ::
+      if cbor_done_sym === e ::
+        idx = this.idx
+        if idx0 == idx ::
+          e = new Error @ `End of content`
+
+        else ::
+          e = new Error @ `End of partial frame`
+          e.cbor_partial = @{}
+            __proto__: _loc_proto_,
+            idx0, idx, incomplete: true
+      throw e
+      
+
+  *iter_decode(inc_location) ::
+    let {_loc_proto_} = this
+    let idx0, idx = this.idx || 0
+
+    try ::
+      while true ::
+        idx0 = idx
+        const value = this.nextValue()
+        idx = this.idx
+
+        yield inc_location
+          ? { __proto__: _loc_proto_, idx0, idx, value }
+          : value
+
+    catch e ::
+      if cbor_done_sym === e ::
+        idx = this.idx
+        if idx0 == idx :: return
+
+        e = new Error @ `End of partial frame`
+        e.cbor_partial = @{}
+          __proto__: _loc_proto_,
+          idx0, idx, incomplete: true
+      throw e
+
+  move(byteWidth) ::
+    const idx0 = this.idx
+    const idx_next = idx0 + byteWidth
+    if idx_next >= this.byteLength ::
+      throw cbor_eoc_sym
+    this.idx = idx_next
+    return idx0
+

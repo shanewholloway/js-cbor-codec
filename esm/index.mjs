@@ -589,359 +589,7 @@ function _set_add(k, v) {this.add(v);}
 function build_Set(ctx) {
   return _withResult(new Set(), _set_add) }
 
-class U8DecodeCtx {
-
-  static subclass(types, jmp, unknown) {
-    class U8DecodeCtx_ extends this {}
-    const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown);
-
-    Object.assign(U8DecodeCtx_.prototype,{
-      nextValue, decode_types: types, types} );
-    return U8DecodeCtx_}
-
-
-  static get fromU8() {
-    const inst0 = new this();
-    const inst0_types = inst0.decode_types;
-
-    return (u8, types) => {
-      u8 = as_u8_buffer(u8);
-      const inst ={
-        __proto__: inst0
-      , idx: 0, u8
-      , _popTypes: noop$1
-      , _loc_proto_:{
-          get u8() {return u8.slice(this.idx0, this.idx)} } };
-
-      if (types !== inst0_types) {
-        inst.decode_types = types;
-        inst.types = types;}
-      return inst} }
-
-  static bindNextValue(jmp, unknown) {
-    if (null == unknown) {
-      unknown = error_unknown;}
-
-    return function nextValue() {
-      const doneTypes = this._popTypes();
-
-      const type_b = this.u8[ this.idx ++ ];
-      if (undefined === type_b) {
-        this.idx--;
-        throw cbor_done_sym}
-
-      const decode = jmp[type_b] || unknown;
-      const res = decode(this, type_b);
-
-      return undefined === doneTypes
-        ? res : doneTypes(res)} }
-
-  fromNestedU8(u8) {
-    return this.constructor.fromU8(u8, this.decode_types) }
-
-  decode(inc_location) {
-    try {
-      if (inc_location) {
-        const idx0 = this.idx || 0;
-        const value = this.nextValue();
-        const idx = this.idx;
-        return {__proto__: this._loc_proto_, value, idx0, idx}}
-
-      return this.nextValue()}
-    catch (e) {
-      if (cbor_done_sym === e) {
-        e = new Error(`End of content`);
-        e.cbor_partial ={
-          __proto__: _loc_proto_,
-          idx0, idx: this.idx, incomplete: true}; }
-      throw e} }
-
-
-  *iter_decode(inc_location) {
-    let {_loc_proto_} = this;
-    let idx0, idx = this.idx || 0;
-
-    try {
-      while (true) {
-        idx0 = idx;
-        const value = this.nextValue();
-        idx = this.idx;
-
-        yield inc_location
-          ? { __proto__: _loc_proto_, idx0, idx, value }
-          : value;} }
-
-    catch (e) {
-      if (cbor_done_sym === e) {
-        idx = this.idx;
-        if (idx0 == idx) {return}
-
-        e = new Error(`End of partial frame`);
-        e.cbor_partial ={
-          __proto__: _loc_proto_,
-          idx0, idx, incomplete: true}; }
-      throw e} }
-
-  pushTypes(overlay_types) {
-    let {types, _popTypes} = this;
-
-    if (noop$1 === _popTypes) {
-      _popTypes = () => {
-        this.types = types;}; }
-
-    this._popTypes = (() => {
-      this._popTypes = _popTypes;
-      this.types = overlay_types;} );
-    return types}
-
-  move(byteWidth) {
-    const idx0 = this.idx;
-    const idx_next = idx0 + byteWidth;
-    if (idx_next >= this.byteLength) {
-      throw cbor_eoc_sym}
-    this.idx = idx_next;
-    return idx0} }
-
-
-function noop$1() {}
-function error_unknown(ctx, type_b) {
-  throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
-
-
-function decode_jump(options, jmp) {
-  jmp = jmp ? jmp.slice() : decode_basic_jump( new Map() );
-
-  if (null == options) {options = {};}
-
-  if (options.simple) {
-    const simple_value = bind_simple_dispatch(options.simple);
-    const tiny_simple = _cbor_tiny(simple_value);
-
-    for (let i=0xe0; i<= 0xf3; i++) {
-      jmp[i] = tiny_simple;}
-
-    jmp[0xf8] = _cbor_w1(simple_value); }
-
-
-  if (options.tags) {
-    const as_tag = bind_tag_dispatch(options.tags);
-    const tiny_tag = _cbor_tiny(as_tag);
-
-    for (let i=0xc0; i<= 0xd7; i++) {
-      jmp[0xc0 | i] = tiny_tag;}
-
-    jmp[0xd8] = _cbor_w1(as_tag);
-    jmp[0xd9] = _cbor_w2(as_tag);
-    jmp[0xda] = _cbor_w4(as_tag);
-    jmp[0xdb] = _cbor_w8(as_tag); }
-
-  return jmp}
-
-
-function decode_basic_jump(tags_lut) {
-  const as_tag = bind_tag_dispatch(tags_lut || new Map());
-
-  const tiny_pos_int = _cbor_tiny(as_pos_int);
-  const tiny_neg_int = _cbor_tiny(as_neg_int);
-  const tiny_bytes = _cbor_tiny(as_bytes);
-  const tiny_utf8 = _cbor_tiny(as_utf8);
-  const tiny_list = _cbor_tiny(as_list);
-  const tiny_map = _cbor_tiny(as_map);
-  const tiny_tag = _cbor_tiny(as_tag);
-  const tiny_simple_repr = _cbor_tiny(simple_repr);
-
-  const jmp = new Array(256);
-
-  for (let i=0; i<= 23; i++) {
-    jmp[0x00 | i] = tiny_pos_int;
-    jmp[0x20 | i] = tiny_neg_int;
-    jmp[0x40 | i] = tiny_bytes;
-    jmp[0x60 | i] = tiny_utf8;
-    jmp[0x80 | i] = tiny_list;
-    jmp[0xa0 | i] = tiny_map;
-    jmp[0xc0 | i] = tiny_tag;
-    jmp[0xe0 | i] = tiny_simple_repr;}
-
-  const cbor_widths =[_cbor_w1, _cbor_w2, _cbor_w4, _cbor_w8];
-  for (let w=0; w< 4; w++) {
-    const i = 24+w, width = cbor_widths[w];
-    jmp[0x00 | i] = width(as_pos_int);
-    jmp[0x20 | i] = width(as_neg_int);
-    jmp[0x40 | i] = width(as_bytes);
-    jmp[0x60 | i] = width(as_utf8);
-    jmp[0x80 | i] = width(as_list);
-    jmp[0xa0 | i] = width(as_map);
-    jmp[0xc0 | i] = width(as_tag); }
-
-  // streaming data types
-  jmp[0x5f] = ctx => as_stream(ctx, ctx.types.bytes_stream(ctx));
-  jmp[0x7f] = ctx => as_stream(ctx, ctx.types.utf8_stream(ctx));
-  jmp[0x9f] = ctx => as_stream(ctx, ctx.types.list_stream(ctx));
-  jmp[0xbf] = ctx => as_pair_stream(ctx, ctx.types.map_stream(ctx));
-
-  // semantic tag
-
-  // primitives
-  jmp[0xf4] = function() {return false};
-  jmp[0xf5] = function() {return true};
-  jmp[0xf6] = function() {return null};
-  jmp[0xf7] = function() {};// undefined
-  jmp[0xf8] = _cbor_w1(simple_repr);
-  jmp[0xf9] = float16;
-  jmp[0xfa] = float32;
-  jmp[0xfb] = float64;
-  //jmp[0xfc] = undefined
-  //jmp[0xfd] = undefined
-  //jmp[0xfe] = undefined
-  jmp[0xff] = function () {return cbor_break_sym};
-
-  return jmp}
-
-
-// special token
-const cbor_break_sym = Symbol('CBOR-break');
-const cbor_done_sym = Symbol('CBOR-done');
-const cbor_eoc_sym = Symbol('CBOR-EOC');
-
-// cbor size/value interpreters
-function _cbor_tiny(as_type) {
-  return function w0_as(ctx, type_b) {
-    return as_type(ctx, type_b & 0x1f) } }
-
-function _cbor_w1(as_type) {
-  return function w1_as(ctx) {
-    const idx = ctx.move(1);
-    return as_type(ctx, ctx.u8[idx]) } }
-
-function _cbor_w2(as_type) {
-  return function w2_as(ctx) {
-    const u8 = ctx.u8, idx = ctx.move(2);
-    const v = (u8[idx] << 8) | u8[idx+1];
-    return as_type(ctx, v) } }
-
-function _cbor_w4(as_type) {
-  return function w4_as(ctx) {
-    const u8 = ctx.u8, idx = ctx.move(4);
-
-    const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
-    return as_type(ctx, (v >>> 0) ) } }// unsigned int32
-
-function _cbor_w8(as_type) {
-  return function (ctx) {
-    const u8 = ctx.u8, idx = ctx.move(8);
-
-    const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
-    const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
-    const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
-    return as_type(ctx, u64) } }
-
-
-// basic types
-
-function as_pos_int(ctx, value) {
-  return value}
-
-function as_neg_int(ctx, value) {
-  return -1 - value}
-
-function as_bytes(ctx, len) {
-  const u8 = ctx.u8, idx = ctx.move(len);
-  return ctx.types.bytes(
-    u8.subarray(idx, idx + len)) }
-
-function as_utf8(ctx, len) {
-  const u8 = ctx.u8, idx = ctx.move(len);
-  return ctx.types.utf8(
-    u8.subarray(idx, idx + len)) }
-
-function as_list(ctx, len) {
-  if (0 === len) {
-    return ctx.types.empty_list()}
-
-  const accum = ctx.types.list(len);
-  for (let i=0; i<len; i++) {
-    accum(i, ctx.nextValue()); }
-
-  return undefined === accum.done ? accum.res : accum.done()}
-
-function as_map(ctx, len) {
-  if (0 === len) {
-    return ctx.types.empty_map()}
-
-  const accum = ctx.types.map(len);
-  for (let i=0; i<len; i++) {
-    const key = ctx.nextValue();
-    const value = ctx.nextValue();
-    accum(key, value); }
-
-  return undefined === accum.done ? accum.res : accum.done()}
-
-
-// streaming
-
-function as_stream(ctx, accum) {
-  let i = 0;
-  while (true) {
-    const value = ctx.nextValue();
-    if (cbor_break_sym === value) {
-      return undefined === accum.done ? accum.res : accum.done()}
-
-    accum(i++, value); } }
-
-function as_pair_stream(ctx, accum) {
-  while (true) {
-    const key = ctx.nextValue();
-    if (cbor_break_sym === key) {
-      return undefined === accum.done ? accum.res : accum.done()}
-
-    accum(key, ctx.nextValue()); } }
-
-
-// primitives
-
-function float16(ctx) {
-  const u8 = ctx.u8, idx = ctx.move(2);
-  return ctx.types.float16(
-    u8.subarray(idx, idx+2)) }
-
-function float32(ctx) {
-  const u8 = ctx.u8, idx = ctx.move(4);
-  return new DataView(u8.buffer, idx, 4).getFloat32(0)}
-
-function float64(ctx) {
-  const u8 = ctx.u8, idx = ctx.move(8);
-  return new DataView(u8.buffer, idx, 8).getFloat64(0)}
-
-
-// simple values
-
-function simple_repr(ctx, key) {
-  return `simple(${key})`}
-
-function bind_simple_dispatch(simple_lut) {
-  if ('function' !== typeof simple_lut.get) {
-    throw new TypeError('Expected a simple_value Map') }
-
-  return function(ctx, key) {
-    return simple_lut.get(key)} }
-
-
-// tag values
-
-function bind_tag_dispatch(tags_lut) {
-  if ('function' !== typeof tags_lut.get) {
-    throw new TypeError('Expected a tags Map') }
-
-  return function(ctx, tag) {
-    const tag_handler = tags_lut.get(tag);
-    if (tag_handler) {
-      const res = tag_handler(ctx, tag);
-      const body = ctx.nextValue();
-      return undefined === res ? body : res(body)}
-
-    return {tag, body: ctx.nextValue()} } }
-
-class CBORDecoderBasic {
+class CBORDecoderBase {
   static decode(u8, opt) {return new this().decode(u8, opt)}
   static iter_decode(u8, opt) {return new this().iter_decode(u8, opt)}
 
@@ -956,33 +604,24 @@ class CBORDecoderBasic {
     if (null != options) {
       this.compile(options);}
 
-    this.decode = (u8, opt) => this._ctxFromU8(u8, this.types).decode(opt);
-    this.iter_decode = (u8, opt) => this._ctxFromU8(u8, this.types).iter_decode(opt);}
+    this.decode = (u8, opt) =>
+      this._ctxFromU8(u8, this.types).decode(opt);
+    this.iter_decode = (u8, opt) =>
+      this._ctxFromU8(u8, this.types).iter_decode(opt);}
 
   compile(options) {
-    this.jmp = decode_jump(options, this.jmp);
+    this.jmp = this._bind_cbor_jmp(options, this.jmp);
 
     if (options.types) {
       this.types = Object.assign(
         Object.create(this.types || null),
         options.types); }
 
-    this._ctxFromU8 =
-      (this.U8DecodeCtx || U8DecodeCtx)
-        .subclass(this.types, this.jmp, options.unknown)
-      .fromU8;
+    const U8DecodeCtx_ = this._bind_u8ctx(
+      this.types, this.jmp, options.unknown);
+    this._ctxFromU8 = U8DecodeCtx_.fromU8;
 
     return this} }
-
-CBORDecoderBasic.compile({
-  types: decode_types});
-
-class CBORDecoder extends CBORDecoderBasic {}
-
-CBORDecoder.compile({
-  types: decode_types
-, tags: basic_tags(new Map()) });
-
 
 function basic_tags(tags_lut) {
   // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -1045,7 +684,655 @@ function basic_tags(tags_lut) {
 
   return tags_lut}
 
+// special token
+const cbor_break_sym = Symbol('CBOR-break');
+const cbor_done_sym = Symbol('CBOR-done');
+const cbor_eoc_sym = Symbol('CBOR-EOC');
+
+const _cbor_jmp_base ={
+  bind_jmp(options, jmp) {
+    jmp = jmp ? jmp.slice()
+      : this.bind_basics_dispatch( new Map() );
+
+    if (null == options) {
+      options = {};}
+
+    if (options.simple) {
+      this.bind_jmp_simple(options, jmp);}
+
+    if (options.tags) {
+      this.bind_jmp_tag(options, jmp);}
+    return jmp}
+
+, bind_jmp_simple(options, jmp) {
+    if (options.simple) {
+      const as_simple_value = this.bind_simple_dispatch(options.simple);
+      const tiny_simple = this.cbor_tiny(as_simple_value);
+
+      for (let i=0xe0; i<= 0xf3; i++) {
+        jmp[i] = tiny_simple;}
+
+      jmp[0xf8] = this.cbor_w1(as_simple_value);}
+    return jmp}
+
+
+, bind_jmp_tag(options, jmp) {
+    if (options.tags) {
+      const as_tag = this.bind_tag_dispatch(options.tags);
+      const tiny_tag = this.cbor_tiny(as_tag);
+
+      for (let i=0xc0; i<= 0xd7; i++) {
+        jmp[0xc0 | i] = tiny_tag;}
+
+      jmp[0xd8] = this.cbor_w1(as_tag);
+      jmp[0xd9] = this.cbor_w2(as_tag);
+      jmp[0xda] = this.cbor_w4(as_tag);
+      jmp[0xdb] = this.cbor_w8(as_tag);}
+
+    return jmp}
+
+
+, bind_basics_dispatch(tags_lut) {
+    const as_tag = this.bind_tag_dispatch(tags_lut || new Map());
+
+    const tiny_pos_int = this.cbor_tiny(this.as_pos_int);
+    const tiny_neg_int = this.cbor_tiny(this.as_neg_int);
+    const tiny_bytes = this.cbor_tiny(this.as_bytes);
+    const tiny_utf8 = this.cbor_tiny(this.as_utf8);
+    const tiny_list = this.cbor_tiny(this.as_list);
+    const tiny_map = this.cbor_tiny(this.as_map);
+    const tiny_tag = this.cbor_tiny(this.as_tag);
+    const tiny_simple_repr = this.cbor_tiny(this.as_simple_repr);
+
+    const jmp = new Array(256);
+
+    for (let i=0; i<= 23; i++) {
+      jmp[0x00 | i] = tiny_pos_int;
+      jmp[0x20 | i] = tiny_neg_int;
+      jmp[0x40 | i] = tiny_bytes;
+      jmp[0x60 | i] = tiny_utf8;
+      jmp[0x80 | i] = tiny_list;
+      jmp[0xa0 | i] = tiny_map;
+      jmp[0xc0 | i] = tiny_tag;
+      jmp[0xe0 | i] = tiny_simple_repr;}
+
+
+    const cbor_widths =[
+      this.cbor_w1,
+      this.cbor_w2,
+      this.cbor_w4,
+      this.cbor_w8];
+
+    for (let w=0; w< 4; w++) {
+      const i = 24+w, cbor_wN = cbor_widths[w];
+      jmp[0x00 | i] = cbor_wN(this.as_pos_int);
+      jmp[0x20 | i] = cbor_wN(this.as_neg_int);
+      jmp[0x40 | i] = cbor_wN(this.as_bytes);
+      jmp[0x60 | i] = cbor_wN(this.as_utf8);
+      jmp[0x80 | i] = cbor_wN(this.as_list);
+      jmp[0xa0 | i] = cbor_wN(this.as_map);
+      jmp[0xc0 | i] = cbor_wN(this.as_tag);}
+
+
+    // streaming data types
+    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx));
+    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx));
+    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx));
+    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx));
+
+    // semantic tag
+
+    // primitives
+    jmp[0xf4] = () => false;
+    jmp[0xf5] = () => true;
+    jmp[0xf6] = () => null;
+    jmp[0xf7] = () => {}; // undefined
+    jmp[0xf8] = this.cbor_w1(this.as_simple_repr);
+    jmp[0xf9] = this.as_float16;
+    jmp[0xfa] = this.as_float32;
+    jmp[0xfb] = this.as_float64;
+    //jmp[0xfc] = undefined
+    //jmp[0xfd] = undefined
+    //jmp[0xfe] = undefined
+    jmp[0xff] = () => cbor_break_sym;
+
+    return jmp}
+
+
+, // simple values
+
+  as_pos_int: (ctx, value) => value,
+  as_neg_int: (ctx, value) => -1 - value,
+  as_simple_repr: (ctx, key) => `simple(${key})`,
+
+  bind_simple_dispatch(simple_lut) {
+    if ('function' !== typeof simple_lut.get) {
+      throw new TypeError('Expected a simple_value Map') }
+
+    return (ctx, key) => simple_lut.get(key)}
+
+
+
+, // Subclass responsibility: cbor size/value interpreters
+  //   cbor_tiny(as_type) :: return function w0_as(ctx, type_b) ::
+  //   cbor_w1(as_type) :: return function w1_as(ctx) ::
+  //   cbor_w2(as_type) :: return function w2_as(ctx) ::
+  //   cbor_w4(as_type) :: return function w4_as(ctx) ::
+  //   cbor_w8(as_type) :: return function w8_as(ctx) ::
+
+  // Subclass responsibility: basic types
+  //   as_bytes(ctx, len) ::
+  //   as_utf8(ctx, len) ::
+  //   as_list(ctx, len) ::
+  //   as_map(ctx, len) ::
+
+  // Subclass responsibility: streaming types
+  //   as_stream(ctx, accum) ::
+  //   as_pair_stream(ctx, accum) ::
+
+  // Subclass responsibility: floating point primitives
+  //   as_float16(ctx) :: return ctx.types.float16(...)
+  //   as_float32(ctx) ::
+  //   as_float64(ctx) ::
+
+
+  // Subclass responsibility: tag values
+  };// bind_tag_dispatch(tags_lut) ::
+
+class U8DecodeBaseCtx {
+
+  static subclass(types, jmp, unknown) {
+    class U8DecodeCtx_ extends this {}
+    const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown);
+
+    Object.assign(U8DecodeCtx_.prototype,{
+      nextValue, decode_types: types, types} );
+    return U8DecodeCtx_}
+
+
+  static get fromU8() {
+    const inst0 = new this();
+    const inst0_types = inst0.decode_types;
+
+    return (u8, types) => {
+      u8 = as_u8_buffer(u8);
+      const inst ={
+        __proto__: inst0
+      , idx: 0, u8
+      , _popTypes: noop$1
+      , _loc_proto_:{
+          get u8() {return u8.slice(this.idx0, this.idx)} } };
+
+      if (types !== inst0_types) {
+        inst.decode_types = types;
+        inst.types = types;}
+      return inst} }
+
+  fromNestedU8(u8) {
+    return this.constructor.fromU8(u8, this.decode_types) }
+
+  pushTypes(overlay_types) {
+    let {types, _popTypes} = this;
+
+    if (noop$1 === _popTypes) {
+      _popTypes = () => {
+        this.types = types;}; }
+
+    this._popTypes = (() => {
+      this._popTypes = _popTypes;
+      this.types = overlay_types;} );
+    return types}
+
+  _error_unknown(ctx, type_b) {
+    throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
+
+  // Subclass responsibilities:
+  //   static bindNextValue(jmp, unknown) ::
+  //   decode(inc_location) ::
+  //   *iter_decode(inc_location) ::
+  }//   move(byteWidth) ::
+
+
+function noop$1() {}
+
+class U8SyncDecodeCtx extends U8DecodeBaseCtx {
+
+  static bindNextValue(jmp, unknown) {
+    if (null == unknown) {
+      unknown = this._error_unknown;}
+
+    return function nextValue() {
+      const doneTypes = this._popTypes();
+
+      const type_b = this.u8[ this.idx ++ ];
+      if (undefined === type_b) {
+        this.idx--;
+        throw cbor_done_sym}
+
+      const decode = jmp[type_b] || unknown;
+      const res = decode(this, type_b);
+
+      return undefined === doneTypes
+        ? res : doneTypes(res)} }
+
+
+  decode(inc_location) {
+    try {
+      if (inc_location) {
+        const idx0 = this.idx || 0;
+        const value = this.nextValue();
+        const idx = this.idx;
+        return {__proto__: this._loc_proto_, value, idx0, idx}}
+
+      return this.nextValue()}
+    catch (e) {
+      if (cbor_done_sym === e) {
+        idx = this.idx;
+        if (idx0 == idx) {
+          e = new Error(`End of content`); }
+
+        else {
+          e = new Error(`End of partial frame`);
+          e.cbor_partial ={
+            __proto__: _loc_proto_,
+            idx0, idx, incomplete: true}; } }
+      throw e} }
+
+
+  *iter_decode(inc_location) {
+    let {_loc_proto_} = this;
+    let idx0, idx = this.idx || 0;
+
+    try {
+      while (true) {
+        idx0 = idx;
+        const value = this.nextValue();
+        idx = this.idx;
+
+        yield inc_location
+          ? { __proto__: _loc_proto_, idx0, idx, value }
+          : value;} }
+
+    catch (e) {
+      if (cbor_done_sym === e) {
+        idx = this.idx;
+        if (idx0 == idx) {return}
+
+        e = new Error(`End of partial frame`);
+        e.cbor_partial ={
+          __proto__: _loc_proto_,
+          idx0, idx, incomplete: true}; }
+      throw e} }
+
+  move(byteWidth) {
+    const idx0 = this.idx;
+    const idx_next = idx0 + byteWidth;
+    if (idx_next >= this.byteLength) {
+      throw cbor_eoc_sym}
+    this.idx = idx_next;
+    return idx0} }
+
+const _cbor_jmp_sync ={
+  __proto__: _cbor_jmp_base
+
+, // cbor size/value interpreters
+  cbor_tiny(as_type) {
+    return function w0_as(ctx, type_b) {
+      return as_type(ctx, type_b & 0x1f) } }
+
+, cbor_w1(as_type) {
+    return function w1_as(ctx) {
+      const idx = ctx.move(1);
+      return as_type(ctx, ctx.u8[idx]) } }
+
+, cbor_w2(as_type) {
+    return function w2_as(ctx) {
+      const u8 = ctx.u8, idx = ctx.move(2);
+      const v = (u8[idx] << 8) | u8[idx+1];
+      return as_type(ctx, v) } }
+
+, cbor_w4(as_type) {
+    return function w4_as(ctx) {
+      const u8 = ctx.u8, idx = ctx.move(4);
+
+      const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+      return as_type(ctx, (v >>> 0) ) } }// unsigned int32
+
+, cbor_w8(as_type) {
+    return function w8_as(ctx) {
+      const u8 = ctx.u8, idx = ctx.move(8);
+
+      const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+      const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
+      const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
+      return as_type(ctx, u64) } }
+
+
+, // basic types
+
+  as_bytes(ctx, len) {
+    const u8 = ctx.u8, idx = ctx.move(len);
+    return ctx.types.bytes(
+      u8.subarray(idx, idx + len)) }
+
+, as_utf8(ctx, len) {
+    const u8 = ctx.u8, idx = ctx.move(len);
+    return ctx.types.utf8(
+      u8.subarray(idx, idx + len)) }
+
+, as_list(ctx, len) {
+    if (0 === len) {
+      return ctx.types.empty_list()}
+
+    const accum = ctx.types.list(len);
+    for (let i=0; i<len; i++) {
+      accum(i, ctx.nextValue()); }
+
+    return undefined === accum.done ? accum.res : accum.done()}
+
+, as_map(ctx, len) {
+    if (0 === len) {
+      return ctx.types.empty_map()}
+
+    const accum = ctx.types.map(len);
+    for (let i=0; i<len; i++) {
+      const key = ctx.nextValue();
+      const value = ctx.nextValue();
+      accum(key, value); }
+
+    return undefined === accum.done ? accum.res : accum.done()}
+
+
+, // streaming
+
+  as_stream(ctx, accum) {
+    let i = 0;
+    while (true) {
+      const value = ctx.nextValue();
+      if (cbor_break_sym === value) {
+        return undefined === accum.done ? accum.res : accum.done()}
+
+      accum(i++, value); } }
+
+, as_pair_stream(ctx, accum) {
+    while (true) {
+      const key = ctx.nextValue();
+      if (cbor_break_sym === key) {
+        return undefined === accum.done ? accum.res : accum.done()}
+
+      accum(key, ctx.nextValue()); } }
+
+
+, // floating point primitives
+
+  as_float16(ctx) {
+    const u8 = ctx.u8, idx = ctx.move(2);
+    return ctx.types.float16(
+      u8.subarray(idx, idx+2)) }
+
+, as_float32(ctx) {
+    const u8 = ctx.u8, idx = ctx.move(4);
+    return new DataView(u8.buffer, idx, 4).getFloat32(0)}
+
+, as_float64(ctx) {
+    const u8 = ctx.u8, idx = ctx.move(8);
+    return new DataView(u8.buffer, idx, 8).getFloat64(0)}
+
+
+, // tag values
+
+  bind_tag_dispatch(tags_lut) {
+    if ('function' !== typeof tags_lut.get) {
+      throw new TypeError('Expected a tags Map') }
+
+    return function(ctx, tag) {
+      const tag_handler = tags_lut.get(tag);
+      if (tag_handler) {
+        const res = tag_handler(ctx, tag);
+        const body = ctx.nextValue();
+        return undefined === res ? body : res(body)}
+
+      return { tag, body: ctx.nextValue() }} } };
+
+class CBORDecoderBasic extends CBORDecoderBase {
+  _bind_cbor_jmp(options, jmp) {
+    return _cbor_jmp_sync.bind_jmp(options, jmp)}
+
+  _bind_u8ctx(types, jmp, unknown) {
+    return (this.U8DecodeCtx || U8SyncDecodeCtx)
+      .subclass(types, jmp, unknown)} }
+
+CBORDecoderBasic.compile({
+  types: decode_types});
+
+
+class CBORDecoder extends CBORDecoderBasic {}
+
+CBORDecoder.compile({
+  types: decode_types,
+  tags: basic_tags(new Map()),});
+
 const {decode, iter_decode} = new CBORDecoder();
 
-export { CBORDecoder, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, U8DecodeCtx, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_break_sym, decode as cbor_decode, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_basic_jump, decode_jump, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, useEncoderFor, utf8_to_u8 };
+class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
+
+  static bindNextValue(jmp, unknown) {
+    if (null == unknown) {
+      unknown = this._error_unknown;}
+
+    return async function nextValue() {
+      const doneTypes = this._popTypes();
+
+      const type_b = this.u8[ this.idx ++ ];
+      if (undefined === type_b) {
+        this.idx--;
+        throw cbor_done_sym}
+
+      const decode = jmp[type_b] || unknown;
+      const res = await decode(this, type_b);
+
+      return undefined === doneTypes
+        ? res : await doneTypes(res)} }
+
+
+  async decode(inc_location) {
+    try {
+      if (inc_location) {
+        const idx0 = this.idx || 0;
+        const value = await this.nextValue();
+        const idx = this.idx;
+        return {__proto__: this._loc_proto_, value, idx0, idx}}
+
+      return await this.nextValue()}
+    catch (e) {
+      if (cbor_done_sym === e) {
+        idx = this.idx;
+        if (idx0 == idx) {
+          e = new Error(`End of content`); }
+
+        else {
+          e = new Error(`End of partial frame`);
+          e.cbor_partial ={
+            __proto__: _loc_proto_,
+            idx0, idx, incomplete: true}; } }
+      throw e} }
+
+
+  async *aiter_decode(inc_location) {
+    let {_loc_proto_} = this;
+    let idx0, idx = this.idx || 0;
+
+    try {
+      while (true) {
+        idx0 = idx;
+        const value = await this.nextValue();
+        idx = this.idx;
+
+        yield inc_location
+          ? { __proto__: _loc_proto_, idx0, idx, value }
+          : value;} }
+
+    catch (e) {
+      if (cbor_done_sym === e) {
+        idx = this.idx;
+        if (idx0 == idx) {return}
+
+        e = new Error(`End of partial frame`);
+        e.cbor_partial ={
+          __proto__: _loc_proto_,
+          idx0, idx, incomplete: true}; }
+      throw e} }
+
+  async move(byteWidth) {
+    const idx0 = this.idx;
+    const idx_next = idx0 + byteWidth;
+    if (idx_next >= this.byteLength) {
+      await 0;
+      throw cbor_eoc_sym}
+    this.idx = idx_next;
+    return idx0} }
+
+const _cbor_jmp_async ={
+  __proto__: _cbor_jmp_base
+
+, // cbor size/value interpreters
+  cbor_tiny(as_type) {
+    return function w0_as(ctx, type_b) {
+      return as_type(ctx, type_b & 0x1f) } }
+
+, cbor_w1(as_type) {
+    return async function w1_as(ctx) {
+      const idx = await ctx.move(1);
+      return as_type(ctx, ctx.u8[idx]) } }
+
+, cbor_w2(as_type) {
+    return async function w2_as(ctx) {
+      const u8 = ctx.u8, idx = await ctx.move(2);
+      const v = (u8[idx] << 8) | u8[idx+1];
+      return as_type(ctx, v) } }
+
+, cbor_w4(as_type) {
+    return async function w4_as(ctx) {
+      const u8 = ctx.u8, idx = await ctx.move(4);
+
+      const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+      return as_type(ctx, (v >>> 0) ) } }// unsigned int32
+
+, cbor_w8(as_type) {
+    return async function w8_as(ctx) {
+      const u8 = ctx.u8, idx = await ctx.move(8);
+
+      const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+      const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
+      const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
+      return as_type(ctx, u64) } }
+
+
+, // basic types
+
+  async as_bytes(ctx, len) {
+    const u8 = ctx.u8, idx = await ctx.move(len);
+    return ctx.types.bytes(
+      u8.subarray(idx, idx + len)) }
+
+, async as_utf8(ctx, len) {
+    const u8 = ctx.u8, idx = await ctx.move(len);
+    return ctx.types.utf8(
+      u8.subarray(idx, idx + len)) }
+
+, async as_list(ctx, len) {
+    if (0 === len) {
+      return ctx.types.empty_list()}
+
+    const accum = ctx.types.list(len);
+    for (let i=0; i<len; i++) {
+      accum(i, await ctx.nextValue()); }
+
+    return undefined === accum.done ? accum.res : accum.done()}
+
+, async as_map(ctx, len) {
+    if (0 === len) {
+      return ctx.types.empty_map()}
+
+    const accum = ctx.types.map(len);
+    for (let i=0; i<len; i++) {
+      const key = await ctx.nextValue();
+      const value = await ctx.nextValue();
+      accum(key, value); }
+
+    return undefined === accum.done ? accum.res : accum.done()}
+
+
+, // streaming
+
+  async as_stream(ctx, accum) {
+    let i = 0;
+    while (true) {
+      const value = await ctx.nextValue();
+      if (cbor_break_sym === value) {
+        return undefined === accum.done ? accum.res : accum.done()}
+
+      accum(i++, value); } }
+
+, async as_pair_stream(ctx, accum) {
+    while (true) {
+      const key = await ctx.nextValue();
+      if (cbor_break_sym === key) {
+        return undefined === accum.done ? accum.res : accum.done()}
+
+      accum(key, await ctx.nextValue()); } }
+
+
+, // floating point primitives
+
+  async as_float16(ctx) {
+    const u8 = ctx.u8, idx = await ctx.move(2);
+    return ctx.types.float16(
+      u8.subarray(idx, idx+2)) }
+
+, async as_float32(ctx) {
+    const u8 = ctx.u8, idx = await ctx.move(4);
+    return new DataView(u8.buffer, idx, 4).getFloat32(0)}
+
+, async as_float64(ctx) {
+    const u8 = ctx.u8, idx = await ctx.move(8);
+    return new DataView(u8.buffer, idx, 8).getFloat64(0)}
+
+
+, // tag values
+
+  bind_tag_dispatch(tags_lut) {
+    if ('function' !== typeof tags_lut.get) {
+      throw new TypeError('Expected a tags Map') }
+
+    return async function as_tag(ctx, tag) {
+      const tag_handler = tags_lut.get(tag);
+      if (tag_handler) {
+        const res = await tag_handler(ctx, tag);
+        const body = await ctx.nextValue();
+        return undefined === res ? body : res(body)}
+
+      return { tag, body: await ctx.nextValue() }} } };
+
+class CBORAsyncDecoderBasic extends CBORDecoderBase {
+  _bind_cbor_jmp(options, jmp) {
+    return _cbor_jmp_async.bind_jmp(options, jmp)}
+
+  _bind_u8ctx(types, jmp, unknown) {
+    return (this.U8DecodeCtx || U8AsyncDecodeCtx)
+      .subclass(types, jmp, unknown)} }
+
+CBORAsyncDecoderBasic.compile({
+  types: decode_types});
+
+
+class CBORAsyncDecoder extends CBORAsyncDecoderBasic {}
+
+CBORAsyncDecoder.compile({
+  types: decode_types,
+  tags: basic_tags(new Map()),});
+
+const {decode: decode$1, aiter_decode} = new CBORAsyncDecoder();
+
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode, as_u8_buffer, decode$1 as async_decode, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode as cbor_aiter_decode, decode$1 as cbor_async_decode, cbor_break_sym, decode as cbor_decode, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, useEncoderFor, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

@@ -1,17 +1,4 @@
-import CBORDecoderBasic from './basic.jsy'
-import { decode_types, decode_Map, decode_Set } from './types.jsy'
-
-export * from './types.jsy'
-export * from './jump.jsy'
-
-export class CBORDecoder extends CBORDecoderBasic ::
-
-CBORDecoder.compile @:
-  types: decode_types
-  tags: basic_tags @ new Map()
-
-export default CBORDecoder
-
+import { decode_Map, decode_Set } from './types.jsy'
 
 export function basic_tags(tags_lut) ::
   // from https://tools.ietf.org/html/rfc7049#section-2.4

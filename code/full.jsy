@@ -1,18 +1,13 @@
 export * from './encode/basic.jsy'
 export * from './encode/index.jsy'
 export * from './encode/full.jsy'
-export ::
-  default as encode,
-  default as cbor_encode,
-from './encode_full.jsy'
+export { encode, cbor_encode } from './encode_full.jsy'
 
 
-export * from './decode/basic.jsy'
-export * from './decode/index.jsy'
-export ::
-  default as decode,
-  default as cbor_decode,
-from './decode.jsy'
+export * from './decode_common/index.jsy'
+
+export * from './decode.jsy'
+export * from './decode_async.jsy'
 
 
 export * from './u8_utils.jsy'

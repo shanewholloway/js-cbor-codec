@@ -1,0 +1,26 @@
+import { CBORDecoderBase } from '../decode_common/basic.jsy'
+import { basic_tags } from '../decode_common/basic_tags.jsy'
+import { decode_types } from '../decode_common/types.jsy'
+
+import { U8AsyncDecodeCtx } from './u8ctx.jsy'
+import { _cbor_jmp_async } from './jump.jsy'
+export * from './jump.jsy'
+
+export class CBORAsyncDecoderBasic extends CBORDecoderBase ::
+  _bind_cbor_jmp(options, jmp) ::
+    return _cbor_jmp_async.bind_jmp(options, jmp)
+
+  _bind_u8ctx(types, jmp, unknown) ::
+    return (this.U8DecodeCtx || U8AsyncDecodeCtx)
+      .subclass(types, jmp, unknown)
+
+CBORAsyncDecoderBasic.compile @:
+  types: decode_types
+
+
+export class CBORAsyncDecoder extends CBORAsyncDecoderBasic ::
+
+CBORAsyncDecoder.compile @:
+  types: decode_types,
+  tags: basic_tags(new Map()),
+

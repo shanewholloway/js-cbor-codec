@@ -1,0 +1,154 @@
+// special token
+export const cbor_break_sym = Symbol('CBOR-break')
+export const cbor_done_sym = Symbol('CBOR-done')
+export const cbor_eoc_sym = Symbol('CBOR-EOC')
+
+export const _cbor_jmp_base = @{}
+  bind_jmp(options, jmp) ::
+    jmp = jmp ? jmp.slice()
+      : this.bind_basics_dispatch( new Map() )
+
+    if null == options ::
+      options = {}
+
+    if options.simple ::
+      this.bind_jmp_simple(options, jmp)
+
+    if options.tags ::
+      this.bind_jmp_tag(options, jmp)
+    return jmp
+
+  bind_jmp_simple(options, jmp) ::
+    if options.simple ::
+      const as_simple_value = this.bind_simple_dispatch(options.simple)
+      const tiny_simple = this.cbor_tiny(as_simple_value)
+
+      for let i=0xe0; i<= 0xf3; i++ ::
+        jmp[i] = tiny_simple
+
+      jmp[0xf8] = this.cbor_w1(as_simple_value)
+    return jmp
+
+
+  bind_jmp_tag(options, jmp) ::
+    if options.tags ::
+      const as_tag = this.bind_tag_dispatch(options.tags)
+      const tiny_tag = this.cbor_tiny(as_tag)
+
+      for let i=0xc0; i<= 0xd7; i++ ::
+        jmp[0xc0 | i] = tiny_tag
+
+      jmp[0xd8] = this.cbor_w1(as_tag)
+      jmp[0xd9] = this.cbor_w2(as_tag)
+      jmp[0xda] = this.cbor_w4(as_tag)
+      jmp[0xdb] = this.cbor_w8(as_tag)
+
+    return jmp
+
+
+  bind_basics_dispatch(tags_lut) ::
+    const as_tag = this.bind_tag_dispatch(tags_lut || new Map())
+
+    const tiny_pos_int = this.cbor_tiny(this.as_pos_int)
+    const tiny_neg_int = this.cbor_tiny(this.as_neg_int)
+    const tiny_bytes = this.cbor_tiny(this.as_bytes)
+    const tiny_utf8 = this.cbor_tiny(this.as_utf8)
+    const tiny_list = this.cbor_tiny(this.as_list)
+    const tiny_map = this.cbor_tiny(this.as_map)
+    const tiny_tag = this.cbor_tiny(this.as_tag)
+    const tiny_simple_repr = this.cbor_tiny(this.as_simple_repr)
+
+    const jmp = new Array(256)
+
+    for let i=0; i<= 23; i++ ::
+      jmp[0x00 | i] = tiny_pos_int
+      jmp[0x20 | i] = tiny_neg_int
+      jmp[0x40 | i] = tiny_bytes
+      jmp[0x60 | i] = tiny_utf8
+      jmp[0x80 | i] = tiny_list
+      jmp[0xa0 | i] = tiny_map
+      jmp[0xc0 | i] = tiny_tag
+      jmp[0xe0 | i] = tiny_simple_repr
+
+
+    const cbor_widths = @[]
+      this.cbor_w1,
+      this.cbor_w2,
+      this.cbor_w4,
+      this.cbor_w8
+
+    for let w=0; w< 4; w++ ::
+      const i = 24+w, cbor_wN = cbor_widths[w]
+      jmp[0x00 | i] = cbor_wN(this.as_pos_int)
+      jmp[0x20 | i] = cbor_wN(this.as_neg_int)
+      jmp[0x40 | i] = cbor_wN(this.as_bytes)
+      jmp[0x60 | i] = cbor_wN(this.as_utf8)
+      jmp[0x80 | i] = cbor_wN(this.as_list)
+      jmp[0xa0 | i] = cbor_wN(this.as_map)
+      jmp[0xc0 | i] = cbor_wN(this.as_tag)
+
+
+    // streaming data types
+    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx))
+    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx))
+    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx))
+    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx))
+
+    // semantic tag
+
+    // primitives
+    jmp[0xf4] = () => false
+    jmp[0xf5] = () => true
+    jmp[0xf6] = () => null
+    jmp[0xf7] = () => {} // undefined
+    jmp[0xf8] = this.cbor_w1(this.as_simple_repr)
+    jmp[0xf9] = this.as_float16
+    jmp[0xfa] = this.as_float32
+    jmp[0xfb] = this.as_float64
+    //jmp[0xfc] = undefined
+    //jmp[0xfd] = undefined
+    //jmp[0xfe] = undefined
+    jmp[0xff] = () => cbor_break_sym
+
+    return jmp
+
+
+  // simple values
+
+  as_pos_int: (ctx, value) => value,
+  as_neg_int: (ctx, value) => -1 - value,
+  as_simple_repr: (ctx, key) => `simple(${key})`,
+
+  bind_simple_dispatch(simple_lut) ::
+    if 'function' !== typeof simple_lut.get ::
+      throw new TypeError @ 'Expected a simple_value Map'
+
+    return (ctx, key) => simple_lut.get(key)
+
+
+
+  // Subclass responsibility: cbor size/value interpreters
+  //   cbor_tiny(as_type) :: return function w0_as(ctx, type_b) ::
+  //   cbor_w1(as_type) :: return function w1_as(ctx) ::
+  //   cbor_w2(as_type) :: return function w2_as(ctx) ::
+  //   cbor_w4(as_type) :: return function w4_as(ctx) ::
+  //   cbor_w8(as_type) :: return function w8_as(ctx) ::
+
+  // Subclass responsibility: basic types
+  //   as_bytes(ctx, len) ::
+  //   as_utf8(ctx, len) ::
+  //   as_list(ctx, len) ::
+  //   as_map(ctx, len) ::
+
+  // Subclass responsibility: streaming types
+  //   as_stream(ctx, accum) ::
+  //   as_pair_stream(ctx, accum) ::
+
+  // Subclass responsibility: floating point primitives
+  //   as_float16(ctx) :: return ctx.types.float16(...)
+  //   as_float32(ctx) ::
+  //   as_float64(ctx) ::
+
+
+  // Subclass responsibility: tag values
+  // bind_tag_dispatch(tags_lut) ::

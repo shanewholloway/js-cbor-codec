@@ -1,0 +1,59 @@
+import { as_u8_buffer } from '../u8_utils.jsy'
+export { cbor_eoc_sym, cbor_done_sym } from './jump.jsy'
+
+export class U8DecodeBaseCtx ::
+
+  static subclass(types, jmp, unknown) ::
+    class U8DecodeCtx_ extends this ::
+    const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown)
+
+    Object.assign @ U8DecodeCtx_.prototype, @{}
+      nextValue, decode_types: types, types
+    return U8DecodeCtx_
+
+
+  static get fromU8() ::
+    const inst0 = new this()
+    const inst0_types = inst0.decode_types
+
+    return (u8, types) => ::
+      u8 = as_u8_buffer(u8)
+      const inst = @{}
+        __proto__: inst0
+        idx: 0, u8
+        _popTypes: noop
+        _loc_proto_: @{}
+          get u8() :: return u8.slice(this.idx0, this.idx)
+
+      if types !== inst0_types ::
+        inst.decode_types = types
+        inst.types = types
+      return inst
+
+  fromNestedU8(u8) ::
+    return this.constructor.fromU8 @ u8, this.decode_types
+
+  pushTypes(overlay_types) ::
+    let {types, _popTypes} = this
+
+    if noop === _popTypes ::
+      _popTypes = () => ::
+        this.types = types
+
+    this._popTypes = @=> ::
+      this._popTypes = _popTypes
+      this.types = overlay_types
+    return types
+
+  _error_unknown(ctx, type_b) ::
+    throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
+
+  // Subclass responsibilities:
+  //   static bindNextValue(jmp, unknown) ::
+  //   decode(inc_location) ::
+  //   *iter_decode(inc_location) ::
+  //   move(byteWidth) ::
+
+
+function noop() ::
+

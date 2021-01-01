@@ -1,7 +1,6 @@
 import { decode_types } from './types.jsy'
-import { U8DecodeCtx, decode_jump } from './jump.jsy'
 
-export class CBORDecoderBasic ::
+export class CBORDecoderBase ::
   static decode(u8, opt) :: return new this().decode(u8, opt)
   static iter_decode(u8, opt) :: return new this().iter_decode(u8, opt)
 
@@ -16,26 +15,22 @@ export class CBORDecoderBasic ::
     if null != options ::
       this.compile(options)
 
-    this.decode = (u8, opt) => this._ctxFromU8(u8, this.types).decode(opt)
-    this.iter_decode = (u8, opt) => this._ctxFromU8(u8, this.types).iter_decode(opt)
+    this.decode = (u8, opt) =>
+      this._ctxFromU8(u8, this.types).decode(opt)
+    this.iter_decode = (u8, opt) =>
+      this._ctxFromU8(u8, this.types).iter_decode(opt)
 
   compile(options) ::
-    this.jmp = decode_jump @ options, this.jmp
+    this.jmp = this._bind_cbor_jmp(options, this.jmp)
 
     if options.types ::
       this.types = Object.assign @
         Object.create(this.types || null),
         options.types
 
-    this._ctxFromU8 =
-      (this.U8DecodeCtx || U8DecodeCtx)
-        .subclass @ this.types, this.jmp, options.unknown
-      .fromU8
+    const U8DecodeCtx_ = this._bind_u8ctx(
+      this.types, this.jmp, options.unknown)
+    this._ctxFromU8 = U8DecodeCtx_.fromU8
 
     return this
-
-CBORDecoderBasic.compile @:
-  types: decode_types
-
-export default CBORDecoderBasic
 

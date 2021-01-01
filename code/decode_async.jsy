@@ -1,0 +1,13 @@
+import { CBORAsyncDecoder } from './decode_async/index.jsy'
+export * from './decode_async/index.jsy'
+
+const {decode, aiter_decode} = new CBORAsyncDecoder()
+
+export {
+  aiter_decode,
+  aiter_decode as cbor_aiter_decode,
+
+  decode as cbor_async_decode,
+  decode as async_decode,
+  decode as default,
+}

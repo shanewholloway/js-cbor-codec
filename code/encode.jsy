@@ -1,9 +1,10 @@
 import { CBOREncoder } from './encode/index.jsy'
+export * from './encode/index.jsy'
 
-export const encode = new CBOREncoder().encode
+const encode = new CBOREncoder().encode
 
-export ::
-  CBOREncoder,
+export {
+  encode,
   encode as cbor_encode,
   encode as default,
-
+}
