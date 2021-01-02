@@ -24,6 +24,7 @@
   "browser": "./umd/index.min.js",
   "exports": {
     "./": "./",
+    "./*": "./*",
     ".": {
       "import": "./esm/index.mjs",
       "require": "./cjs/index.cjs"

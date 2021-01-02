@@ -28,6 +28,8 @@ testing_tags.set @ 23, tag_as_hex_diagnostic // Expected conversion to base16 en
 testing_tags.set @ 24, tag_as_hex_diagnostic // Encoded CBOR data item
 testing_tags.set @ 32, tag_as_diagnostic // URI
 
+function u8_as_stream(u8) ::
+  return u8
 
 const CBORAsyncDecoder = CBORAsyncDecoderBasic.options @:
   tags: testing_tags
@@ -48,7 +50,7 @@ describe @ 'Async Decode CBOR Test Vectors', @=> ::
     it_fn @ `"${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, @::>
       const u8 = hex_to_u8 @ test.hex
 
-      const ans = await CBORAsyncDecoder.decode(u8)
+      const ans = await CBORAsyncDecoder.decode_stream(u8_as_stream(u8))
       if test.diagnostic ::
         try ::
           assert.equal @ test.diagnostic, ans+''

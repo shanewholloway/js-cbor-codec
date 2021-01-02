@@ -1,11 +1,15 @@
 import { decode_types } from './types.jsy'
 
 export class CBORDecoderBase ::
-  static decode(u8, opt) :: return new this().decode(u8, opt)
-  static iter_decode(u8, opt) :: return new this().iter_decode(u8, opt)
+  // Possible monkeypatch apis responsibilities:
+  //   decode(inc_location) ::
+  //   *iter_decode(inc_location) ::
+  //   async decode_stream(inc_location) ::
+  //   async * aiter_decode_stream(inc_location) ::
 
   static options(options) ::
-    return (class extends this {}).compile(options)
+    return (class extends this {})
+      .compile(options)
 
   static compile(options) ::
     this.prototype.compile(options)
@@ -15,10 +19,7 @@ export class CBORDecoderBase ::
     if null != options ::
       this.compile(options)
 
-    this.decode = (u8, opt) =>
-      this._ctxFromU8(u8, this.types).decode(opt)
-    this.iter_decode = (u8, opt) =>
-      this._ctxFromU8(u8, this.types).iter_decode(opt)
+    this._U8Ctx_.bind_decode_api(this)
 
   compile(options) ::
     this.jmp = this._bind_cbor_jmp(options, this.jmp)
@@ -28,9 +29,7 @@ export class CBORDecoderBase ::
         Object.create(this.types || null),
         options.types
 
-    const U8DecodeCtx_ = this._bind_u8ctx(
+    this._U8Ctx_ = this._bind_u8ctx(
       this.types, this.jmp, options.unknown)
-    this._ctxFromU8 = U8DecodeCtx_.fromU8
-
     return this
 

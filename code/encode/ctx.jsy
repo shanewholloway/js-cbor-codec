@@ -16,15 +16,15 @@ function bind_ctx_prototype() ::
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
 
-    tagEncode(tag, value) ::
+    tag_encode(tag, value) ::
       const end_tag = this.tag(tag)
       this.encode(value)
       return end_tag()
 
-    tag(tag, withTag) ::
+    tag(tag, with_tag) ::
       if true === tag :: tag = 0xd9f7
       this.add_int(0xc0, tag)
-      return withTag || this.host.withTag(tag)
+      return with_tag || this.host.with_tag(tag)
 
     bytes_stream(iterable) ::
       const {add_w0, add_bytes} = this
@@ -149,9 +149,9 @@ export function bind_encoder_context(stream) ::
     if undefined === opt || null === opt ::
       ctx.encode(v)
     else if true === opt || 'number' === typeof opt ::
-      ctx.tagEncode(opt, v)
+      ctx.tag_encode(opt, v)
     else if opt.tag ::
-      ctx.tagEncode(opt.tag, v)
+      ctx.tag_encode(opt.tag, v)
     return ctx.flush()
 
 

@@ -4,9 +4,9 @@ export function basic_tags(tags_lut) ::
   // from https://tools.ietf.org/html/rfc7049#section-2.4
 
   // Standard date/time string; see Section 2.4.1
-  tags_lut.set @ 0, () => ts_sz => new Date @ ts_sz
+  tags_lut.set @ 0, () => ts_sz => new Date(ts_sz)
   // Epoch-based date/time; see Section 2.4.1
-  tags_lut.set @ 1, () => seconds => new Date @ seconds * 1000
+  tags_lut.set @ 1, () => seconds => new Date(seconds * 1000)
 
   // Positive bignum; see Section 2.4.2
   // tags_lut.set @ 2, () => v => v
@@ -30,7 +30,7 @@ export function basic_tags(tags_lut) ::
   // tags_lut.set @ 23, () => v => v
 
   // Encoded CBOR data item; see Section 2.4.4.1
-  tags_lut.set @ 24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx)
+  tags_lut.set @ 24, ctx => u8 => ctx.types.nested_cbor(u8, ctx)
 
   // URI; see Section 2.4.4.3
   tags_lut.set @ 32, () => url_sz => new URL(url_sz)
@@ -48,16 +48,16 @@ export function basic_tags(tags_lut) ::
   //tags_lut.set @ 36, () => v => v
 
   // Self-describe CBOR; see Section 2.4.5
-  tags_lut.set @ 55799, () => ::
+  tags_lut.set @ 55799, () => {}
 
 
   // EXTENSIONS
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 258, ctx => :: ctx.pushTypes @ decode_Set
+  tags_lut.set @ 258, ctx => { ctx.push_types(decode_Set) }
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 259, ctx => :: ctx.pushTypes @ decode_Map
+  tags_lut.set @ 259, ctx => { ctx.push_types(decode_Map) }
 
   return tags_lut
 

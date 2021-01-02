@@ -7,6 +7,14 @@ import { _cbor_jmp_async } from './jump.jsy'
 export * from './jump.jsy'
 
 export class CBORAsyncDecoderBasic extends CBORDecoderBase ::
+  // async decode_stream(inc_location) ::
+  static decode_stream(u8_stream, opt) ::
+    return new this().decode_stream(u8_stream, opt)
+
+  // async *aiter_decode_stream(inc_location) ::
+  static aiter_decode_stream(u8_stream, opt) ::
+    return new this().aiter_decode_stream(u8_stream, opt)
+
   _bind_cbor_jmp(options, jmp) ::
     return _cbor_jmp_async.bind_jmp(options, jmp)
 

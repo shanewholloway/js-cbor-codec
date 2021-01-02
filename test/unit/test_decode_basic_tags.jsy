@@ -22,9 +22,9 @@ describe @ 'Decode CBOR Tags', @=> ::
       'd818 456449455446'
 
     assert.deepEqual @ Array.from(u8), [ 100, 73, 69, 84, 70 ]
-    assert.equal @ typeof u8.decodeCBOR, 'function'
+    assert.equal @ typeof u8.decode_cbor, 'function'
 
-    const ans = u8.decodeCBOR()
+    const ans = u8.decode_cbor()
     assert.equal @ ans, 'IETF'
 
   it @ 'Tag 32 -- URI; see Section 2.4.4.3', @=> ::

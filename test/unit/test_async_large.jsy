@@ -2,7 +2,10 @@ const { assert } = require('chai')
 
 import { u8_to_hex } from 'u8-utils'
 
-import { cbor_encode, cbor_async_decode } from 'cbor-codec'
+import { cbor_encode, cbor_decode_stream } from 'cbor-codec'
+
+function u8_as_stream(u8) ::
+  return u8
 
 describe @ 'Async Roundtrip Large Objects', @::>
   it @ `long string`, @::>
@@ -11,7 +14,8 @@ describe @ 'Async Roundtrip Large Objects', @::>
     const enc_val = cbor_encode @ s_128k
     assert.equal @ enc_val.byteLength, 0x20000 + 1 + 4
 
-    const dec_val = await cbor_async_decode @ enc_val
+    const dec_val = await cbor_decode_stream @
+      u8_as_stream(enc_val)
     assert.deepEqual @ dec_val, s_128k
 
   it @ `[null] * 256`, @::>
@@ -20,7 +24,8 @@ describe @ 'Async Roundtrip Large Objects', @::>
     const enc_val = cbor_encode @ a_256
     assert.equal @ enc_val.byteLength, 1 + 2 + a_256.length * (1)
 
-    const dec_val = await cbor_async_decode @ enc_val
+    const dec_val = await cbor_decode_stream @
+      u8_as_stream(enc_val)
     assert.deepEqual @ dec_val, a_256
 
   it @ `['slot'] * 256`, @::>
@@ -30,7 +35,8 @@ describe @ 'Async Roundtrip Large Objects', @::>
     const enc_val = cbor_encode @ sa_256
     assert.equal @ enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4)
 
-    const dec_val = await cbor_async_decode @ enc_val
+    const dec_val = await cbor_decode_stream @
+      u8_as_stream(enc_val)
     assert.deepEqual @ dec_val, sa_256
 
 
@@ -43,5 +49,6 @@ describe @ 'Async Roundtrip Large Objects', @::>
     assert.equal @ enc_val.byteLength,
       1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4))
 
-    const dec_val = await cbor_async_decode @ enc_val
+    const dec_val = await cbor_decode_stream @
+      u8_as_stream(enc_val)
     assert.deepEqual @ dec_val, sa_70_256

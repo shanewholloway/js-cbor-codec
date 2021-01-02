@@ -77,18 +77,18 @@
   const decode_types ={
     __proto__: null
 
-  , nestedCBOR(u8, ctx) {
-      ctx = ctx.fromNestedU8(u8);
-      u8.decodeCBOR = () => ctx.decode();
+  , nested_cbor(u8, ctx) {
+      ctx = ctx.from_nested_u8(u8);
+      u8.decode_cbor = () => ctx.decode_cbor();
       return u8}
 
-  , float16(u8) {return u8}
+  , float16(u8) {return {'@f2': u8}}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_Bytes
+  , bytes_stream: build_bytes
 
   , utf8(u8) {return u8_to_utf8(u8)}
-  , utf8_stream: build_UTF8
+  , utf8_stream: build_utf8
 
 
   , empty_list() {return []}
@@ -101,7 +101,7 @@
 
 
 
-  function _withResultFn(res, fn, done) {
+  function _with_result_fn(res, fn, done) {
     fn = fn.bind(res);
     fn.done = done;
     fn.res = res;
@@ -112,18 +112,18 @@
     const res = this.res; this.res = null;
     return u8_concat(res)}
 
-  function build_Bytes(ctx) {
-    return _withResultFn([], _obj_push, _bytes_done) }
+  function build_bytes(ctx) {
+    return _with_result_fn([], _obj_push, _bytes_done) }
 
   function _utf8_done() {
     const res = this.res; this.res = null;
     return res.join('')}
-  function build_UTF8(ctx) {
-    return _withResultFn([], _obj_push, _utf8_done) }
+  function build_utf8(ctx) {
+    return _with_result_fn([], _obj_push, _utf8_done) }
 
 
 
-  function _withResult(res, fn) {
+  function _with_result(res, fn) {
     fn = fn.bind(res);
     fn.res = res;
     return fn}
@@ -131,11 +131,11 @@
   function _obj_set(k, v) {this[k] = v;}
 
   function build_Obj(ctx) {
-    return _withResult({}, _obj_set) }
+    return _with_result({}, _obj_set) }
 
   function build_Array(ctx, len) {
     const res = len ? new Array(len) : [];
-    return _withResult(res, _obj_set) }
+    return _with_result(res, _obj_set) }
 
 
   const decode_Map ={
@@ -145,7 +145,7 @@
 
   function _map_set(k, v) {this.set(k, v);}
   function build_Map(ctx) {
-    return _withResult(new Map(), _map_set) }
+    return _with_result(new Map(), _map_set) }
 
 
   const decode_Set ={
@@ -155,14 +155,18 @@
 
   function _set_add(k, v) {this.add(v);}
   function build_Set(ctx) {
-    return _withResult(new Set(), _set_add) }
+    return _with_result(new Set(), _set_add) }
 
   class CBORDecoderBase {
-    static decode(u8, opt) {return new this().decode(u8, opt)}
-    static iter_decode(u8, opt) {return new this().iter_decode(u8, opt)}
+    // Possible monkeypatch apis responsibilities:
+    //   decode(inc_location) ::
+    //   *iter_decode(inc_location) ::
+    //   async decode_stream(inc_location) ::
+    //   async * aiter_decode_stream(inc_location) ::
 
     static options(options) {
-      return (class extends this {}).compile(options)}
+      return (class extends this {})
+        .compile(options)}
 
     static compile(options) {
       this.prototype.compile(options);
@@ -172,10 +176,7 @@
       if (null != options) {
         this.compile(options);}
 
-      this.decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).decode(opt);
-      this.iter_decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).iter_decode(opt);}
+      this._U8Ctx_.bind_decode_api(this);}
 
     compile(options) {
       this.jmp = this._bind_cbor_jmp(options, this.jmp);
@@ -185,10 +186,8 @@
           Object.create(this.types || null),
           options.types); }
 
-      const U8DecodeCtx_ = this._bind_u8ctx(
+      this._U8Ctx_ = this._bind_u8ctx(
         this.types, this.jmp, options.unknown);
-      this._ctxFromU8 = U8DecodeCtx_.fromU8;
-
       return this} }
 
   function basic_tags(tags_lut) {
@@ -221,7 +220,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx));
+    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -239,16 +238,16 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {} );
+    tags_lut.set(55799, () => {});
 
 
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => {ctx.pushTypes(decode_Set);} );
+    tags_lut.set(258, ctx => { ctx.push_types(decode_Set); });
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => {ctx.pushTypes(decode_Map);} );
+    tags_lut.set(259, ctx => { ctx.push_types(decode_Map); });
 
     return tags_lut}
 
@@ -411,14 +410,14 @@
 
     static subclass(types, jmp, unknown) {
       class U8DecodeCtx_ extends this {}
-      const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown);
+      const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown);
 
       Object.assign(U8DecodeCtx_.prototype,{
         nextValue, decode_types: types, types} );
       return U8DecodeCtx_}
 
 
-    static get fromU8() {
+    static get from_u8() {
       const inst0 = new this();
       const inst0_types = inst0.decode_types;
 
@@ -427,7 +426,7 @@
         const inst ={
           __proto__: inst0
         , idx: 0, u8
-        , _popTypes: noop
+        , _pop_types: noop
         , _loc_proto_:{
             get u8() {return u8.slice(this.idx0, this.idx)} } };
 
@@ -436,18 +435,20 @@
           inst.types = types;}
         return inst} }
 
-    fromNestedU8(u8) {
-      return this.constructor.fromU8(u8, this.decode_types) }
+    from_nested_u8(u8) {
+      return this.constructor
+        .from_u8(u8, this.decode_types)}
 
-    pushTypes(overlay_types) {
-      let {types, _popTypes} = this;
 
-      if (noop === _popTypes) {
-        _popTypes = () => {
+    push_types(overlay_types) {
+      let {types, _pop_types} = this;
+
+      if (noop === _pop_types) {
+        _pop_types = () => {
           this.types = types;}; }
 
-      this._popTypes = (() => {
-        this._popTypes = _popTypes;
+      this._pop_types = (() => {
+        this._pop_types = _pop_types;
         this.types = overlay_types;} );
       return types}
 
@@ -455,22 +456,36 @@
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
     // Subclass responsibilities:
-    //   static bindNextValue(jmp, unknown) ::
+    //   static bind_decode_api(decoder)
+    //   static bind_next_value(jmp, unknown) ::
+    //   move(byteWidth) ::
+
+    // Possible Subclass responsibilities:
     //   decode(inc_location) ::
     //   *iter_decode(inc_location) ::
-    }//   move(byteWidth) ::
+    //   async decode_stream(inc_location) ::
+    }//   async * aiter_decode_stream(inc_location) ::
 
 
   function noop() {}
 
   class U8SyncDecodeCtx extends U8DecodeBaseCtx {
+    static bind_decode_api(decoder) {
+      decoder.decode = (u8, opt) =>
+        this.from_u8(u8, decoder.types)
+          .decode_cbor(opt);
 
-    static bindNextValue(jmp, unknown) {
+      decoder.iter_decode = (u8, opt) =>
+        this.from_u8(u8, decoder.types)
+          .iter_decode_cbor(opt);}
+
+
+    static bind_next_value(jmp, unknown) {
       if (null == unknown) {
         unknown = this._error_unknown;}
 
       return function nextValue() {
-        const doneTypes = this._popTypes();
+        const doneTypes = this._pop_types();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -484,7 +499,7 @@
           ? res : doneTypes(res)} }
 
 
-    decode(inc_location) {
+    decode_cbor(inc_location) {
       try {
         if (inc_location) {
           const idx0 = this.idx || 0;
@@ -507,7 +522,7 @@
         throw e} }
 
 
-    *iter_decode(inc_location) {
+    *iter_decode_cbor(inc_location) {
       let {_loc_proto_} = this;
       let idx0, idx = this.idx || 0;
 
@@ -663,6 +678,14 @@
         return { tag, body: ctx.nextValue() }} } };
 
   class CBORDecoderBasic extends CBORDecoderBase {
+    // decode(inc_location) ::
+    static decode(u8, opt) {
+      return new this().decode(u8, opt)}
+
+    // *iter_decode(inc_location) ::
+    static iter_decode(u8, opt) {
+      return new this().iter_decode(u8, opt)}
+
     _bind_cbor_jmp(options, jmp) {
       return _cbor_jmp_sync.bind_jmp(options, jmp)}
 
@@ -703,9 +726,9 @@
         'd818 456449455446') );
 
       assert.deepEqual(Array.from(u8), [ 100, 73, 69, 84, 70 ]);
-      assert.equal(typeof u8.decodeCBOR, 'function');
+      assert.equal(typeof u8.decode_cbor, 'function');
 
-      const ans = u8.decodeCBOR();
+      const ans = u8.decode_cbor();
       assert.equal(ans, 'IETF'); } ) );
 
     it('Tag 32 -- URI; see Section 2.4.4.3', (() => {
@@ -1519,7 +1542,7 @@
       ctx.add_w0(0);} }
 
 
-  function useEncoderFor(lut_types, example, ...encoders) {
+  function use_encoder_for(lut_types, example, ...encoders) {
     for (const fn of encoders) {
       lut_types.set(_obj_kind_(example), fn); } }
 
@@ -1527,31 +1550,31 @@
   const lut_common_types = bind_builtin_types(new Map());
 
   function bind_builtin_types(lut_types) {
-    useEncoderFor(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan);} );
-    useEncoderFor(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
-    useEncoderFor(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
-    useEncoderFor(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
-    useEncoderFor(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
-    useEncoderFor(lut_types, 42, encode_number);
-    useEncoderFor(lut_types, 42.1, encode_number);
-    useEncoderFor(lut_types, [], (v, ctx) => {ctx.array(v);} );
-    useEncoderFor(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
+    use_encoder_for(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan);} );
+    use_encoder_for(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
+    use_encoder_for(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
+    use_encoder_for(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
+    use_encoder_for(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
+    use_encoder_for(lut_types, 42, encode_number);
+    use_encoder_for(lut_types, 42.1, encode_number);
+    use_encoder_for(lut_types, [], (v, ctx) => {ctx.array(v);} );
+    use_encoder_for(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    useEncoderFor(lut_types, parseInt, (() => {} ) );
-    useEncoderFor(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for(lut_types, parseInt, (() => {} ) );
+    use_encoder_for(lut_types, Symbol.iterator, (() => {} ) );
 
 
      {// ArrayBuffer and friends
       const ab = new ArrayBuffer(0);
       function encode_bytes(v, ctx) {ctx.add_bytes(v);}
-      useEncoderFor(lut_types, ab, encode_bytes);
+      use_encoder_for(lut_types, ab, encode_bytes);
 
       for (const ArrayDataKlass of [
           Int8Array, Uint8Array, Uint8ClampedArray,
           Int16Array, Uint16Array, Int32Array, Uint32Array,
           Float32Array, Float64Array, DataView] ) {
 
-        useEncoderFor(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
+        use_encoder_for(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
 
     return lut_types}
 
@@ -1570,15 +1593,15 @@
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      tagEncode(tag, value) {
+      tag_encode(tag, value) {
         const end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
-    , tag(tag, withTag) {
+    , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7;}
         this.add_int(0xc0, tag);
-        return withTag || this.host.withTag(tag)}
+        return with_tag || this.host.with_tag(tag)}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -1703,9 +1726,9 @@
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
-        ctx.tagEncode(opt, v);}
+        ctx.tag_encode(opt, v);}
       else if (opt.tag) {
-        ctx.tagEncode(opt.tag, v);}
+        ctx.tag_encode(opt.tag, v);}
       return ctx.flush()}
 
 
@@ -1806,7 +1829,7 @@
       this.encode.rebind(this);
       return this}
 
-    withTag(tag) {return noop$1}
+    with_tag(tag) {return noop$1}
 
     encoder_map() {
       if (! Object.hasOwnProperty(this, '_encoder_map')) {
@@ -1832,25 +1855,25 @@
 
   function basic_tag_encoders(encoders) {
     // tag 1 -- Date
-    useEncoderFor(encoders, new Date(), (v, ctx) => {
+    use_encoder_for(encoders, new Date(), (v, ctx) => {
       const end_tag = ctx.tag(1);
       ctx.float64(v / 1000.);
       end_tag();} );
 
     // tag 32 -- URIs
-    useEncoderFor(encoders, new URL('ws://h'), (v, ctx) => {
+    use_encoder_for(encoders, new URL('ws://h'), (v, ctx) => {
       const end_tag = ctx.tag(32);
       ctx.add_utf8(v.toString());
       end_tag();} );
 
     // tag 258 -- Sets (explicit type)
-    useEncoderFor(encoders, new Set(), (v, ctx) => {
+    use_encoder_for(encoders, new Set(), (v, ctx) => {
       const end_tag = ctx.tag(258);
       ctx.list(v, v.size);
       end_tag();} );
 
     // tag 259 -- Maps (explicit type)
-    useEncoderFor(encoders, new Map(), (v, ctx) => {
+    use_encoder_for(encoders, new Map(), (v, ctx) => {
       const end_tag = ctx.tag(259);
       ctx.pairs(v.entries(), v.size);
       end_tag();} );
@@ -1862,18 +1885,18 @@
   const decode_types$1 ={
     __proto__: null
 
-  , nestedCBOR(u8, ctx) {
-      ctx = ctx.fromNestedU8(u8);
-      u8.decodeCBOR = () => ctx.decode();
+  , nested_cbor(u8, ctx) {
+      ctx = ctx.from_nested_u8(u8);
+      u8.decode_cbor = () => ctx.decode_cbor();
       return u8}
 
-  , float16(u8) {return u8}
+  , float16(u8) {return {'@f2': u8}}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_Bytes$1
+  , bytes_stream: build_bytes$1
 
   , utf8(u8) {return u8_to_utf8$1(u8)}
-  , utf8_stream: build_UTF8$1
+  , utf8_stream: build_utf8$1
 
 
   , empty_list() {return []}
@@ -1886,7 +1909,7 @@
 
 
 
-  function _withResultFn$1(res, fn, done) {
+  function _with_result_fn$1(res, fn, done) {
     fn = fn.bind(res);
     fn.done = done;
     fn.res = res;
@@ -1897,18 +1920,18 @@
     const res = this.res; this.res = null;
     return u8_concat$1(res)}
 
-  function build_Bytes$1(ctx) {
-    return _withResultFn$1([], _obj_push$1, _bytes_done$1) }
+  function build_bytes$1(ctx) {
+    return _with_result_fn$1([], _obj_push$1, _bytes_done$1) }
 
   function _utf8_done$1() {
     const res = this.res; this.res = null;
     return res.join('')}
-  function build_UTF8$1(ctx) {
-    return _withResultFn$1([], _obj_push$1, _utf8_done$1) }
+  function build_utf8$1(ctx) {
+    return _with_result_fn$1([], _obj_push$1, _utf8_done$1) }
 
 
 
-  function _withResult$1(res, fn) {
+  function _with_result$1(res, fn) {
     fn = fn.bind(res);
     fn.res = res;
     return fn}
@@ -1916,11 +1939,11 @@
   function _obj_set$1(k, v) {this[k] = v;}
 
   function build_Obj$1(ctx) {
-    return _withResult$1({}, _obj_set$1) }
+    return _with_result$1({}, _obj_set$1) }
 
   function build_Array$1(ctx, len) {
     const res = len ? new Array(len) : [];
-    return _withResult$1(res, _obj_set$1) }
+    return _with_result$1(res, _obj_set$1) }
 
 
   const decode_Map$1 ={
@@ -1930,7 +1953,7 @@
 
   function _map_set$1(k, v) {this.set(k, v);}
   function build_Map$1(ctx) {
-    return _withResult$1(new Map(), _map_set$1) }
+    return _with_result$1(new Map(), _map_set$1) }
 
 
   const decode_Set$1 ={
@@ -1940,14 +1963,18 @@
 
   function _set_add$1(k, v) {this.add(v);}
   function build_Set$1(ctx) {
-    return _withResult$1(new Set(), _set_add$1) }
+    return _with_result$1(new Set(), _set_add$1) }
 
   class CBORDecoderBase$1 {
-    static decode(u8, opt) {return new this().decode(u8, opt)}
-    static iter_decode(u8, opt) {return new this().iter_decode(u8, opt)}
+    // Possible monkeypatch apis responsibilities:
+    //   decode(inc_location) ::
+    //   *iter_decode(inc_location) ::
+    //   async decode_stream(inc_location) ::
+    //   async * aiter_decode_stream(inc_location) ::
 
     static options(options) {
-      return (class extends this {}).compile(options)}
+      return (class extends this {})
+        .compile(options)}
 
     static compile(options) {
       this.prototype.compile(options);
@@ -1957,10 +1984,7 @@
       if (null != options) {
         this.compile(options);}
 
-      this.decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).decode(opt);
-      this.iter_decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).iter_decode(opt);}
+      this._U8Ctx_.bind_decode_api(this);}
 
     compile(options) {
       this.jmp = this._bind_cbor_jmp(options, this.jmp);
@@ -1970,10 +1994,8 @@
           Object.create(this.types || null),
           options.types); }
 
-      const U8DecodeCtx_ = this._bind_u8ctx(
+      this._U8Ctx_ = this._bind_u8ctx(
         this.types, this.jmp, options.unknown);
-      this._ctxFromU8 = U8DecodeCtx_.fromU8;
-
       return this} }
 
   function basic_tags$1(tags_lut) {
@@ -2006,7 +2028,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx));
+    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -2024,16 +2046,16 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {} );
+    tags_lut.set(55799, () => {});
 
 
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => {ctx.pushTypes(decode_Set$1);} );
+    tags_lut.set(258, ctx => { ctx.push_types(decode_Set$1); });
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => {ctx.pushTypes(decode_Map$1);} );
+    tags_lut.set(259, ctx => { ctx.push_types(decode_Map$1); });
 
     return tags_lut}
 
@@ -2196,14 +2218,14 @@
 
     static subclass(types, jmp, unknown) {
       class U8DecodeCtx_ extends this {}
-      const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown);
+      const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown);
 
       Object.assign(U8DecodeCtx_.prototype,{
         nextValue, decode_types: types, types} );
       return U8DecodeCtx_}
 
 
-    static get fromU8() {
+    static get from_u8() {
       const inst0 = new this();
       const inst0_types = inst0.decode_types;
 
@@ -2212,7 +2234,7 @@
         const inst ={
           __proto__: inst0
         , idx: 0, u8
-        , _popTypes: noop$1$1
+        , _pop_types: noop$1$1
         , _loc_proto_:{
             get u8() {return u8.slice(this.idx0, this.idx)} } };
 
@@ -2221,18 +2243,20 @@
           inst.types = types;}
         return inst} }
 
-    fromNestedU8(u8) {
-      return this.constructor.fromU8(u8, this.decode_types) }
+    from_nested_u8(u8) {
+      return this.constructor
+        .from_u8(u8, this.decode_types)}
 
-    pushTypes(overlay_types) {
-      let {types, _popTypes} = this;
 
-      if (noop$1$1 === _popTypes) {
-        _popTypes = () => {
+    push_types(overlay_types) {
+      let {types, _pop_types} = this;
+
+      if (noop$1$1 === _pop_types) {
+        _pop_types = () => {
           this.types = types;}; }
 
-      this._popTypes = (() => {
-        this._popTypes = _popTypes;
+      this._pop_types = (() => {
+        this._pop_types = _pop_types;
         this.types = overlay_types;} );
       return types}
 
@@ -2240,22 +2264,36 @@
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
     // Subclass responsibilities:
-    //   static bindNextValue(jmp, unknown) ::
+    //   static bind_decode_api(decoder)
+    //   static bind_next_value(jmp, unknown) ::
+    //   move(byteWidth) ::
+
+    // Possible Subclass responsibilities:
     //   decode(inc_location) ::
     //   *iter_decode(inc_location) ::
-    }//   move(byteWidth) ::
+    //   async decode_stream(inc_location) ::
+    }//   async * aiter_decode_stream(inc_location) ::
 
 
   function noop$1$1() {}
 
   class U8SyncDecodeCtx$1 extends U8DecodeBaseCtx$1 {
+    static bind_decode_api(decoder) {
+      decoder.decode = (u8, opt) =>
+        this.from_u8(u8, decoder.types)
+          .decode_cbor(opt);
 
-    static bindNextValue(jmp, unknown) {
+      decoder.iter_decode = (u8, opt) =>
+        this.from_u8(u8, decoder.types)
+          .iter_decode_cbor(opt);}
+
+
+    static bind_next_value(jmp, unknown) {
       if (null == unknown) {
         unknown = this._error_unknown;}
 
       return function nextValue() {
-        const doneTypes = this._popTypes();
+        const doneTypes = this._pop_types();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -2269,7 +2307,7 @@
           ? res : doneTypes(res)} }
 
 
-    decode(inc_location) {
+    decode_cbor(inc_location) {
       try {
         if (inc_location) {
           const idx0 = this.idx || 0;
@@ -2292,7 +2330,7 @@
         throw e} }
 
 
-    *iter_decode(inc_location) {
+    *iter_decode_cbor(inc_location) {
       let {_loc_proto_} = this;
       let idx0, idx = this.idx || 0;
 
@@ -2448,6 +2486,14 @@
         return { tag, body: ctx.nextValue() }} } };
 
   class CBORDecoderBasic$1 extends CBORDecoderBase$1 {
+    // decode(inc_location) ::
+    static decode(u8, opt) {
+      return new this().decode(u8, opt)}
+
+    // *iter_decode(inc_location) ::
+    static iter_decode(u8, opt) {
+      return new this().iter_decode(u8, opt)}
+
     _bind_cbor_jmp(options, jmp) {
       return _cbor_jmp_sync$1.bind_jmp(options, jmp)}
 
@@ -2468,13 +2514,21 @@
   const {decode: decode$1, iter_decode: iter_decode$1} = new CBORDecoder$1();
 
   class U8AsyncDecodeCtx extends U8DecodeBaseCtx$1 {
+    static bind_decode_api(decoder) {
+      decoder.decode_stream = (u8_stream, opt) =>
+        this.from_u8_stream(u8_stream, decoder.types)
+          .decode_cbor(opt);
 
-    static bindNextValue(jmp, unknown) {
+      decoder.aiter_decode_stream = (u8_stream, opt) =>
+        this.from_u8_stream(u8_stream, decoder.types)
+          .aiter_decode_cbor(opt);}
+
+    static bind_next_value(jmp, unknown) {
       if (null == unknown) {
         unknown = this._error_unknown;}
 
       return async function nextValue() {
-        const doneTypes = this._popTypes();
+        const doneTypes = this._pop_types();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -2487,8 +2541,10 @@
         return undefined === doneTypes
           ? res : await doneTypes(res)} }
 
+    static from_u8_stream(...args) {
+      return this.from_u8(...args)}
 
-    async decode(inc_location) {
+    async decode_cbor(inc_location) {
       try {
         if (inc_location) {
           const idx0 = this.idx || 0;
@@ -2511,7 +2567,7 @@
         throw e} }
 
 
-    async *aiter_decode(inc_location) {
+    async *aiter_decode_cbor(inc_location) {
       let {_loc_proto_} = this;
       let idx0, idx = this.idx || 0;
 
@@ -2668,6 +2724,14 @@
         return { tag, body: await ctx.nextValue() }} } };
 
   class CBORAsyncDecoderBasic extends CBORDecoderBase$1 {
+    // async decode_stream(inc_location) ::
+    static decode_stream(u8_stream, opt) {
+      return new this().decode_stream(u8_stream, opt)}
+
+    // async *aiter_decode_stream(inc_location) ::
+    static aiter_decode_stream(u8_stream, opt) {
+      return new this().aiter_decode_stream(u8_stream, opt)}
+
     _bind_cbor_jmp(options, jmp) {
       return _cbor_jmp_async.bind_jmp(options, jmp)}
 
@@ -2685,7 +2749,7 @@
     types: decode_types$1,
     tags: basic_tags$1(new Map()),});
 
-  const {decode: decode$1$1, aiter_decode} = new CBORAsyncDecoder();
+  const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
   const { assert: assert$1 } = require('chai');
 
@@ -2878,7 +2942,7 @@
       ctx.add_w0(0);} }
 
 
-  function useEncoderFor$1(lut_types, example, ...encoders) {
+  function use_encoder_for$1(lut_types, example, ...encoders) {
     for (const fn of encoders) {
       lut_types.set(_obj_kind_$1(example), fn); } }
 
@@ -2886,31 +2950,31 @@
   const lut_common_types$1 = bind_builtin_types$1(new Map());
 
   function bind_builtin_types$1(lut_types) {
-    useEncoderFor$1(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan$1);} );
-    useEncoderFor$1(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
-    useEncoderFor$1(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
-    useEncoderFor$1(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
-    useEncoderFor$1(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
-    useEncoderFor$1(lut_types, 42, encode_number$1);
-    useEncoderFor$1(lut_types, 42.1, encode_number$1);
-    useEncoderFor$1(lut_types, [], (v, ctx) => {ctx.array(v);} );
-    useEncoderFor$1(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
+    use_encoder_for$1(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan$1);} );
+    use_encoder_for$1(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
+    use_encoder_for$1(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
+    use_encoder_for$1(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
+    use_encoder_for$1(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
+    use_encoder_for$1(lut_types, 42, encode_number$1);
+    use_encoder_for$1(lut_types, 42.1, encode_number$1);
+    use_encoder_for$1(lut_types, [], (v, ctx) => {ctx.array(v);} );
+    use_encoder_for$1(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    useEncoderFor$1(lut_types, parseInt, (() => {} ) );
-    useEncoderFor$1(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for$1(lut_types, parseInt, (() => {} ) );
+    use_encoder_for$1(lut_types, Symbol.iterator, (() => {} ) );
 
 
      {// ArrayBuffer and friends
       const ab = new ArrayBuffer(0);
       function encode_bytes(v, ctx) {ctx.add_bytes(v);}
-      useEncoderFor$1(lut_types, ab, encode_bytes);
+      use_encoder_for$1(lut_types, ab, encode_bytes);
 
       for (const ArrayDataKlass of [
           Int8Array, Uint8Array, Uint8ClampedArray,
           Int16Array, Uint16Array, Int32Array, Uint32Array,
           Float32Array, Float64Array, DataView] ) {
 
-        useEncoderFor$1(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
+        use_encoder_for$1(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
 
     return lut_types}
 
@@ -2929,15 +2993,15 @@
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      tagEncode(tag, value) {
+      tag_encode(tag, value) {
         const end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
-    , tag(tag, withTag) {
+    , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7;}
         this.add_int(0xc0, tag);
-        return withTag || this.host.withTag(tag)}
+        return with_tag || this.host.with_tag(tag)}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -3062,9 +3126,9 @@
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
-        ctx.tagEncode(opt, v);}
+        ctx.tag_encode(opt, v);}
       else if (opt.tag) {
-        ctx.tagEncode(opt.tag, v);}
+        ctx.tag_encode(opt.tag, v);}
       return ctx.flush()}
 
 
@@ -3165,7 +3229,7 @@
       this.encode.rebind(this);
       return this}
 
-    withTag(tag) {return noop$2}
+    with_tag(tag) {return noop$2}
 
     encoder_map() {
       if (! Object.hasOwnProperty(this, '_encoder_map')) {
@@ -3191,25 +3255,25 @@
 
   function basic_tag_encoders$1(encoders) {
     // tag 1 -- Date
-    useEncoderFor$1(encoders, new Date(), (v, ctx) => {
+    use_encoder_for$1(encoders, new Date(), (v, ctx) => {
       const end_tag = ctx.tag(1);
       ctx.float64(v / 1000.);
       end_tag();} );
 
     // tag 32 -- URIs
-    useEncoderFor$1(encoders, new URL('ws://h'), (v, ctx) => {
+    use_encoder_for$1(encoders, new URL('ws://h'), (v, ctx) => {
       const end_tag = ctx.tag(32);
       ctx.add_utf8(v.toString());
       end_tag();} );
 
     // tag 258 -- Sets (explicit type)
-    useEncoderFor$1(encoders, new Set(), (v, ctx) => {
+    use_encoder_for$1(encoders, new Set(), (v, ctx) => {
       const end_tag = ctx.tag(258);
       ctx.list(v, v.size);
       end_tag();} );
 
     // tag 259 -- Maps (explicit type)
-    useEncoderFor$1(encoders, new Map(), (v, ctx) => {
+    use_encoder_for$1(encoders, new Map(), (v, ctx) => {
       const end_tag = ctx.tag(259);
       ctx.pairs(v.entries(), v.size);
       end_tag();} );
@@ -3493,7 +3557,7 @@
       ctx.add_w0(0);} }
 
 
-  function useEncoderFor$2(lut_types, example, ...encoders) {
+  function use_encoder_for$2(lut_types, example, ...encoders) {
     for (const fn of encoders) {
       lut_types.set(_obj_kind_$2(example), fn); } }
 
@@ -3501,31 +3565,31 @@
   const lut_common_types$2 = bind_builtin_types$2(new Map());
 
   function bind_builtin_types$2(lut_types) {
-    useEncoderFor$2(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan$2);} );
-    useEncoderFor$2(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
-    useEncoderFor$2(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
-    useEncoderFor$2(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
-    useEncoderFor$2(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
-    useEncoderFor$2(lut_types, 42, encode_number$2);
-    useEncoderFor$2(lut_types, 42.1, encode_number$2);
-    useEncoderFor$2(lut_types, [], (v, ctx) => {ctx.array(v);} );
-    useEncoderFor$2(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
+    use_encoder_for$2(lut_types, NaN, (v, ctx) => {ctx.raw_frame(cu8_f32_nan$2);} );
+    use_encoder_for$2(lut_types, undefined, (v, ctx) => {ctx.add_w0(0xf7);} );
+    use_encoder_for$2(lut_types, null, (v, ctx) => {ctx.add_w0(0xf6);} );
+    use_encoder_for$2(lut_types, true, (v, ctx) => {ctx.add_w0(v ? 0xf5 : 0xf4);} );
+    use_encoder_for$2(lut_types, 'utf8', (v, ctx) => {ctx.add_utf8(v);} );
+    use_encoder_for$2(lut_types, 42, encode_number$2);
+    use_encoder_for$2(lut_types, 42.1, encode_number$2);
+    use_encoder_for$2(lut_types, [], (v, ctx) => {ctx.array(v);} );
+    use_encoder_for$2(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    useEncoderFor$2(lut_types, parseInt, (() => {} ) );
-    useEncoderFor$2(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for$2(lut_types, parseInt, (() => {} ) );
+    use_encoder_for$2(lut_types, Symbol.iterator, (() => {} ) );
 
 
      {// ArrayBuffer and friends
       const ab = new ArrayBuffer(0);
       function encode_bytes(v, ctx) {ctx.add_bytes(v);}
-      useEncoderFor$2(lut_types, ab, encode_bytes);
+      use_encoder_for$2(lut_types, ab, encode_bytes);
 
       for (const ArrayDataKlass of [
           Int8Array, Uint8Array, Uint8ClampedArray,
           Int16Array, Uint16Array, Int32Array, Uint32Array,
           Float32Array, Float64Array, DataView] ) {
 
-        useEncoderFor$2(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
+        use_encoder_for$2(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
 
     return lut_types}
 
@@ -3544,15 +3608,15 @@
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      tagEncode(tag, value) {
+      tag_encode(tag, value) {
         const end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
-    , tag(tag, withTag) {
+    , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7;}
         this.add_int(0xc0, tag);
-        return withTag || this.host.withTag(tag)}
+        return with_tag || this.host.with_tag(tag)}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -3677,9 +3741,9 @@
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
-        ctx.tagEncode(opt, v);}
+        ctx.tag_encode(opt, v);}
       else if (opt.tag) {
-        ctx.tagEncode(opt.tag, v);}
+        ctx.tag_encode(opt.tag, v);}
       return ctx.flush()}
 
 
@@ -3780,7 +3844,7 @@
       this.encode.rebind(this);
       return this}
 
-    withTag(tag) {return noop$3}
+    with_tag(tag) {return noop$3}
 
     encoder_map() {
       if (! Object.hasOwnProperty(this, '_encoder_map')) {
@@ -3806,25 +3870,25 @@
 
   function basic_tag_encoders$2(encoders) {
     // tag 1 -- Date
-    useEncoderFor$2(encoders, new Date(), (v, ctx) => {
+    use_encoder_for$2(encoders, new Date(), (v, ctx) => {
       const end_tag = ctx.tag(1);
       ctx.float64(v / 1000.);
       end_tag();} );
 
     // tag 32 -- URIs
-    useEncoderFor$2(encoders, new URL('ws://h'), (v, ctx) => {
+    use_encoder_for$2(encoders, new URL('ws://h'), (v, ctx) => {
       const end_tag = ctx.tag(32);
       ctx.add_utf8(v.toString());
       end_tag();} );
 
     // tag 258 -- Sets (explicit type)
-    useEncoderFor$2(encoders, new Set(), (v, ctx) => {
+    use_encoder_for$2(encoders, new Set(), (v, ctx) => {
       const end_tag = ctx.tag(258);
       ctx.list(v, v.size);
       end_tag();} );
 
     // tag 259 -- Maps (explicit type)
-    useEncoderFor$2(encoders, new Map(), (v, ctx) => {
+    use_encoder_for$2(encoders, new Map(), (v, ctx) => {
       const end_tag = ctx.tag(259);
       ctx.pairs(v.entries(), v.size);
       end_tag();} );
@@ -3990,18 +4054,18 @@
   const decode_types$2 ={
     __proto__: null
 
-  , nestedCBOR(u8, ctx) {
-      ctx = ctx.fromNestedU8(u8);
-      u8.decodeCBOR = () => ctx.decode();
+  , nested_cbor(u8, ctx) {
+      ctx = ctx.from_nested_u8(u8);
+      u8.decode_cbor = () => ctx.decode_cbor();
       return u8}
 
-  , float16(u8) {return u8}
+  , float16(u8) {return {'@f2': u8}}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_Bytes$2
+  , bytes_stream: build_bytes$2
 
   , utf8(u8) {return u8_to_utf8$2(u8)}
-  , utf8_stream: build_UTF8$2
+  , utf8_stream: build_utf8$2
 
 
   , empty_list() {return []}
@@ -4014,7 +4078,7 @@
 
 
 
-  function _withResultFn$2(res, fn, done) {
+  function _with_result_fn$2(res, fn, done) {
     fn = fn.bind(res);
     fn.done = done;
     fn.res = res;
@@ -4025,18 +4089,18 @@
     const res = this.res; this.res = null;
     return u8_concat$4(res)}
 
-  function build_Bytes$2(ctx) {
-    return _withResultFn$2([], _obj_push$2, _bytes_done$2) }
+  function build_bytes$2(ctx) {
+    return _with_result_fn$2([], _obj_push$2, _bytes_done$2) }
 
   function _utf8_done$2() {
     const res = this.res; this.res = null;
     return res.join('')}
-  function build_UTF8$2(ctx) {
-    return _withResultFn$2([], _obj_push$2, _utf8_done$2) }
+  function build_utf8$2(ctx) {
+    return _with_result_fn$2([], _obj_push$2, _utf8_done$2) }
 
 
 
-  function _withResult$2(res, fn) {
+  function _with_result$2(res, fn) {
     fn = fn.bind(res);
     fn.res = res;
     return fn}
@@ -4044,11 +4108,11 @@
   function _obj_set$2(k, v) {this[k] = v;}
 
   function build_Obj$2(ctx) {
-    return _withResult$2({}, _obj_set$2) }
+    return _with_result$2({}, _obj_set$2) }
 
   function build_Array$2(ctx, len) {
     const res = len ? new Array(len) : [];
-    return _withResult$2(res, _obj_set$2) }
+    return _with_result$2(res, _obj_set$2) }
 
 
   const decode_Map$2 ={
@@ -4058,7 +4122,7 @@
 
   function _map_set$2(k, v) {this.set(k, v);}
   function build_Map$2(ctx) {
-    return _withResult$2(new Map(), _map_set$2) }
+    return _with_result$2(new Map(), _map_set$2) }
 
 
   const decode_Set$2 ={
@@ -4068,14 +4132,18 @@
 
   function _set_add$2(k, v) {this.add(v);}
   function build_Set$2(ctx) {
-    return _withResult$2(new Set(), _set_add$2) }
+    return _with_result$2(new Set(), _set_add$2) }
 
   class CBORDecoderBase$2 {
-    static decode(u8, opt) {return new this().decode(u8, opt)}
-    static iter_decode(u8, opt) {return new this().iter_decode(u8, opt)}
+    // Possible monkeypatch apis responsibilities:
+    //   decode(inc_location) ::
+    //   *iter_decode(inc_location) ::
+    //   async decode_stream(inc_location) ::
+    //   async * aiter_decode_stream(inc_location) ::
 
     static options(options) {
-      return (class extends this {}).compile(options)}
+      return (class extends this {})
+        .compile(options)}
 
     static compile(options) {
       this.prototype.compile(options);
@@ -4085,10 +4153,7 @@
       if (null != options) {
         this.compile(options);}
 
-      this.decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).decode(opt);
-      this.iter_decode = (u8, opt) =>
-        this._ctxFromU8(u8, this.types).iter_decode(opt);}
+      this._U8Ctx_.bind_decode_api(this);}
 
     compile(options) {
       this.jmp = this._bind_cbor_jmp(options, this.jmp);
@@ -4098,10 +4163,8 @@
           Object.create(this.types || null),
           options.types); }
 
-      const U8DecodeCtx_ = this._bind_u8ctx(
+      this._U8Ctx_ = this._bind_u8ctx(
         this.types, this.jmp, options.unknown);
-      this._ctxFromU8 = U8DecodeCtx_.fromU8;
-
       return this} }
 
   function basic_tags$2(tags_lut) {
@@ -4134,7 +4197,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nestedCBOR(u8, ctx));
+    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -4152,16 +4215,16 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {} );
+    tags_lut.set(55799, () => {});
 
 
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => {ctx.pushTypes(decode_Set$2);} );
+    tags_lut.set(258, ctx => { ctx.push_types(decode_Set$2); });
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => {ctx.pushTypes(decode_Map$2);} );
+    tags_lut.set(259, ctx => { ctx.push_types(decode_Map$2); });
 
     return tags_lut}
 
@@ -4324,14 +4387,14 @@
 
     static subclass(types, jmp, unknown) {
       class U8DecodeCtx_ extends this {}
-      const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown);
+      const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown);
 
       Object.assign(U8DecodeCtx_.prototype,{
         nextValue, decode_types: types, types} );
       return U8DecodeCtx_}
 
 
-    static get fromU8() {
+    static get from_u8() {
       const inst0 = new this();
       const inst0_types = inst0.decode_types;
 
@@ -4340,7 +4403,7 @@
         const inst ={
           __proto__: inst0
         , idx: 0, u8
-        , _popTypes: noop$4
+        , _pop_types: noop$4
         , _loc_proto_:{
             get u8() {return u8.slice(this.idx0, this.idx)} } };
 
@@ -4349,18 +4412,20 @@
           inst.types = types;}
         return inst} }
 
-    fromNestedU8(u8) {
-      return this.constructor.fromU8(u8, this.decode_types) }
+    from_nested_u8(u8) {
+      return this.constructor
+        .from_u8(u8, this.decode_types)}
 
-    pushTypes(overlay_types) {
-      let {types, _popTypes} = this;
 
-      if (noop$4 === _popTypes) {
-        _popTypes = () => {
+    push_types(overlay_types) {
+      let {types, _pop_types} = this;
+
+      if (noop$4 === _pop_types) {
+        _pop_types = () => {
           this.types = types;}; }
 
-      this._popTypes = (() => {
-        this._popTypes = _popTypes;
+      this._pop_types = (() => {
+        this._pop_types = _pop_types;
         this.types = overlay_types;} );
       return types}
 
@@ -4368,22 +4433,35 @@
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
     // Subclass responsibilities:
-    //   static bindNextValue(jmp, unknown) ::
+    //   static bind_decode_api(decoder)
+    //   static bind_next_value(jmp, unknown) ::
+    //   move(byteWidth) ::
+
+    // Possible Subclass responsibilities:
     //   decode(inc_location) ::
     //   *iter_decode(inc_location) ::
-    }//   move(byteWidth) ::
+    //   async decode_stream(inc_location) ::
+    }//   async * aiter_decode_stream(inc_location) ::
 
 
   function noop$4() {}
 
   class U8AsyncDecodeCtx$1 extends U8DecodeBaseCtx$2 {
+    static bind_decode_api(decoder) {
+      decoder.decode_stream = (u8_stream, opt) =>
+        this.from_u8_stream(u8_stream, decoder.types)
+          .decode_cbor(opt);
 
-    static bindNextValue(jmp, unknown) {
+      decoder.aiter_decode_stream = (u8_stream, opt) =>
+        this.from_u8_stream(u8_stream, decoder.types)
+          .aiter_decode_cbor(opt);}
+
+    static bind_next_value(jmp, unknown) {
       if (null == unknown) {
         unknown = this._error_unknown;}
 
       return async function nextValue() {
-        const doneTypes = this._popTypes();
+        const doneTypes = this._pop_types();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -4396,8 +4474,10 @@
         return undefined === doneTypes
           ? res : await doneTypes(res)} }
 
+    static from_u8_stream(...args) {
+      return this.from_u8(...args)}
 
-    async decode(inc_location) {
+    async decode_cbor(inc_location) {
       try {
         if (inc_location) {
           const idx0 = this.idx || 0;
@@ -4420,7 +4500,7 @@
         throw e} }
 
 
-    async *aiter_decode(inc_location) {
+    async *aiter_decode_cbor(inc_location) {
       let {_loc_proto_} = this;
       let idx0, idx = this.idx || 0;
 
@@ -4577,6 +4657,14 @@
         return { tag, body: await ctx.nextValue() }} } };
 
   class CBORAsyncDecoderBasic$1 extends CBORDecoderBase$2 {
+    // async decode_stream(inc_location) ::
+    static decode_stream(u8_stream, opt) {
+      return new this().decode_stream(u8_stream, opt)}
+
+    // async *aiter_decode_stream(inc_location) ::
+    static aiter_decode_stream(u8_stream, opt) {
+      return new this().aiter_decode_stream(u8_stream, opt)}
+
     _bind_cbor_jmp(options, jmp) {
       return _cbor_jmp_async$1.bind_jmp(options, jmp)}
 
@@ -4594,36 +4682,38 @@
     types: decode_types$2,
     tags: basic_tags$2(new Map()),});
 
-  const {decode: decode$2, aiter_decode: aiter_decode$1} = new CBORAsyncDecoder$1();
+  const {decode_stream: decode_stream$1, aiter_decode_stream: aiter_decode_stream$1} = new CBORAsyncDecoder$1();
 
   const { assert: assert$5 } = require('chai');
 
+  function hex_to_u8_stream(hex_u8) {
+    return hex_to_u8(hex_u8)}
 
   describe('Async Decode CBOR Tags', (async () => {
     it('Tag 0 -- Standard date/time string; see Section 2.4.1', (async () => {
-      const ans = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const ans = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'c0 74 323031332d30332d32315432303a30343a30305a') );
 
       assert$5.equal(ans.toISOString(), '2013-03-21T20:04:00.000Z'); }) );
 
     it('Tag 1 -- Epoch-based date/time; see Section 2.4.1', (async () => {
-      const ans = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const ans = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'c1 fb 41d452d9ec200000') );
 
       assert$5.equal(ans.toISOString(), '2013-03-21T20:04:00.500Z'); }) );
 
     it('Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', (async () => {
-      const u8 = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const u8 = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'd818 456449455446') );
 
       assert$5.deepEqual(Array.from(u8), [ 100, 73, 69, 84, 70 ]);
-      assert$5.equal(typeof u8.decodeCBOR, 'function');
+      assert$5.equal(typeof u8.decode_cbor, 'function');
 
-      const ans = await u8.decodeCBOR();
+      const ans = await u8.decode_cbor();
       assert$5.equal(ans, 'IETF'); }) );
 
     it('Tag 32 -- URI; see Section 2.4.4.3', (async () => {
-      const url = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const url = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'd820 76687474703a2f2f7777772e6578616d706c652e636f6d') );
 
       assert$5.equal(url.href, 'http://www.example.com/');
@@ -4632,13 +4722,13 @@
       assert$5.equal(url.pathname, '/'); }) );
 
     it('Tag 55799 -- Self-describe CBOR; see Section 2.4.5', (async () => {
-      const ans = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const ans = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'D9 D9F7 83 01 02 03') );
 
       assert$5.deepEqual(ans, [1,2,3]); }) );
 
     it('Tag 258 -- Sets for CBOR', (async () => {
-      const s = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const s = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'D9 0102 83 01 02 03') );
 
       assert$5.equal(s.has(1), true);
@@ -4649,7 +4739,7 @@
       assert$5.equal(s instanceof Set, true); }) );
 
     it('Tag 259 -- Explicit Maps for CBOR -- mixed keys', (async () => {
-      const m = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const m = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'D9 0103 A3 190796 627631 626b32 627632 83010203 627633') );
 
       assert$5.ok(m instanceof Map);
@@ -4658,7 +4748,7 @@
       assert$5.equal(m.get('k2'), 'v2'); }) );
 
     it('Tag 259 -- Explicit Maps for CBOR -- all string keys', (async () => {
-      const m = await CBORAsyncDecoder$1.decode(hex_to_u8(
+      const m = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
         'D9 0103 A2 626B31 627631 626B32 627632') );
 
       assert$5.ok(m instanceof Map);
@@ -4689,6 +4779,8 @@
   testing_tags$1.set(24, tag_as_hex_diagnostic$1 );// Encoded CBOR data item
   testing_tags$1.set(32, tag_as_diagnostic$1 );// URI
 
+  function u8_as_stream(u8) {
+    return u8}
 
   const CBORAsyncDecoder$2 = CBORAsyncDecoderBasic.options({
     tags: testing_tags$1
@@ -4709,7 +4801,7 @@
       it_fn(`"${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, (async () => {
         const u8 = hex_to_u8(test.hex);
 
-        const ans = await CBORAsyncDecoder$2.decode(u8);
+        const ans = await CBORAsyncDecoder$2.decode_stream(u8_as_stream(u8));
         if (test.diagnostic) {
           try {
             assert$6.equal(test.diagnostic, ans+''); }
@@ -4725,6 +4817,9 @@
 
   const { assert: assert$7 } = require('chai');
 
+  function u8_as_stream$1(u8) {
+    return u8}
+
   describe('Async Roundtrip Large Objects', (async () => {
     it(`long string`, (async () => {
       const s_128k = 'testing '.repeat(128*1024/8);
@@ -4732,7 +4827,8 @@
       const enc_val = encode(s_128k);
       assert$7.equal(enc_val.byteLength, 0x20000 + 1 + 4);
 
-      const dec_val = await decode$1$1(enc_val);
+      const dec_val = await decode_stream(
+        u8_as_stream$1(enc_val));
       assert$7.deepEqual(dec_val, s_128k); }) );
 
     it(`[null] * 256`, (async () => {
@@ -4741,7 +4837,8 @@
       const enc_val = encode(a_256);
       assert$7.equal(enc_val.byteLength, 1 + 2 + a_256.length * (1));
 
-      const dec_val = await decode$1$1(enc_val);
+      const dec_val = await decode_stream(
+        u8_as_stream$1(enc_val));
       assert$7.deepEqual(dec_val, a_256); }) );
 
     it(`['slot'] * 256`, (async () => {
@@ -4751,7 +4848,8 @@
       const enc_val = encode(sa_256);
       assert$7.equal(enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4));
 
-      const dec_val = await decode$1$1(enc_val);
+      const dec_val = await decode_stream(
+        u8_as_stream$1(enc_val));
       assert$7.deepEqual(dec_val, sa_256); }) );
 
 
@@ -4764,7 +4862,8 @@
       assert$7.equal(enc_val.byteLength,
         1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4)));
 
-      const dec_val = await decode$1$1(enc_val);
+      const dec_val = await decode_stream(
+        u8_as_stream$1(enc_val));
       assert$7.deepEqual(dec_val, sa_70_256); }) ); }) );
 
   (require('source-map-support') || {install(){}}).install();

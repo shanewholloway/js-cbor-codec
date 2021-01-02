@@ -5,14 +5,14 @@ export class U8DecodeBaseCtx ::
 
   static subclass(types, jmp, unknown) ::
     class U8DecodeCtx_ extends this ::
-    const nextValue = U8DecodeCtx_.bindNextValue(jmp, unknown)
+    const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown)
 
     Object.assign @ U8DecodeCtx_.prototype, @{}
       nextValue, decode_types: types, types
     return U8DecodeCtx_
 
 
-  static get fromU8() ::
+  static get from_u8() ::
     const inst0 = new this()
     const inst0_types = inst0.decode_types
 
@@ -21,7 +21,7 @@ export class U8DecodeBaseCtx ::
       const inst = @{}
         __proto__: inst0
         idx: 0, u8
-        _popTypes: noop
+        _pop_types: noop
         _loc_proto_: @{}
           get u8() :: return u8.slice(this.idx0, this.idx)
 
@@ -30,18 +30,20 @@ export class U8DecodeBaseCtx ::
         inst.types = types
       return inst
 
-  fromNestedU8(u8) ::
-    return this.constructor.fromU8 @ u8, this.decode_types
+  from_nested_u8(u8) ::
+    return this.constructor
+      .from_u8(u8, this.decode_types)
 
-  pushTypes(overlay_types) ::
-    let {types, _popTypes} = this
 
-    if noop === _popTypes ::
-      _popTypes = () => ::
+  push_types(overlay_types) ::
+    let {types, _pop_types} = this
+
+    if noop === _pop_types ::
+      _pop_types = () => ::
         this.types = types
 
-    this._popTypes = @=> ::
-      this._popTypes = _popTypes
+    this._pop_types = @=> ::
+      this._pop_types = _pop_types
       this.types = overlay_types
     return types
 
@@ -49,11 +51,16 @@ export class U8DecodeBaseCtx ::
     throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
 
   // Subclass responsibilities:
-  //   static bindNextValue(jmp, unknown) ::
-  //   decode(inc_location) ::
-  //   *iter_decode(inc_location) ::
+  //   static bind_decode_api(decoder)
+  //   static bind_next_value(jmp, unknown) ::
   //   move(byteWidth) ::
 
+  // Possible Subclass responsibilities:
+  //   decode(inc_location) ::
+  //   *iter_decode(inc_location) ::
+  //   async decode_stream(inc_location) ::
+  //   async * aiter_decode_stream(inc_location) ::
 
-function noop() ::
+
+function noop() {}
 

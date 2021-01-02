@@ -12,7 +12,7 @@ export class CBOREncoderBasic ::
     this.encode.rebind(this)
     return this
 
-  withTag(tag) :: return noop
+  with_tag(tag) :: return noop
 
   encoder_map() ::
     if ! Object.hasOwnProperty(this, '_encoder_map') ::
