@@ -5,7 +5,7 @@ import { cbor_encode, cbor_decode_stream } from 'cbor-codec'
 import { u8_as_test_stream } from './_async_test_utils.jsy'
 
 describe @ 'Async Roundtrip Large Objects', @::
-  for let test_stream_mode of ['whole', 'halves' ] ::
+  for let test_stream_mode of ['whole', 'halves', 'frames' ] ::
     describe @ `streamed by ${test_stream_mode}`, @::
       it @ `long string`, @::>
         const s_128k = 'testing '.repeat(128*1024/8)

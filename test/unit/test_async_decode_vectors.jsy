@@ -46,7 +46,7 @@ const CBORAsyncDecoder = CBORAsyncDecoderBasic.options @:
 describe @ 'Async Decode CBOR Test Vectors', @=> ::
   for const test of test_vectors ::
     describe @ `"${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, @::
-      for let test_stream_mode of ['whole', 'halves', 'byte'] ::
+      for let test_stream_mode of ['whole', 'halves', 'frames', 'byte'] ::
         const it_fn = test.skip ? it.skip : test.only ? it.only : it
         it_fn @ `streamed by ${test_stream_mode}`, @::>
           const u8 = hex_to_u8 @ test.hex

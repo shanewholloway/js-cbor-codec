@@ -12,12 +12,17 @@ export async function * u8_as_test_stream(u8, test_stream_mode) ::
       yield u8.slice(ih)
       return
 
+    case 'frames':
+    case 'frame8':
+      return yield * _aiter_u8_frames(u8, 8)
+
     case 'byte':
-      for let i=0; i<u8.length; i++ ::
-        yield u8.slice(i, i+1)
-      return
+      return yield * _aiter_u8_frames(u8, 1)
 
     default:
       throw new Error(`Unknown stream mode: ${test_stream_mode}`)
 
 
+async function * _aiter_u8_frames(u8, frame_size=8) ::
+  for (let i=0; i<u8.byteLength; i += frame_size)
+    yield u8.slice(i, i+frame_size)

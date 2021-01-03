@@ -6,7 +6,7 @@ import { u8_as_test_stream } from './_async_test_utils.jsy'
 
 describe @ 'Async Decode CBOR Tags', @::>
 
-  for let test_stream_mode of ['whole', 'halves', 'byte'] ::
+  for let test_stream_mode of ['whole', 'halves', 'frames', 'byte'] ::
     describe @ `streamed by ${test_stream_mode}`, @::
 
       let hex_to_u8_stream = hex_u8 =>

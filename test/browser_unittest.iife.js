@@ -4614,19 +4614,26 @@
         yield u8.slice(ih);
         return
 
+      case 'frames':
+      case 'frame8':
+        return yield * _aiter_u8_frames(u8, 8)
+
       case 'byte':
-        for (let i=0; i<u8.length; i++) {
-          yield u8.slice(i, i+1);}
-        return
+        return yield * _aiter_u8_frames(u8, 1)
 
       default:
         throw new Error(`Unknown stream mode: ${test_stream_mode}`)} }
+
+
+  async function * _aiter_u8_frames(u8, frame_size=8) {
+    for (let i=0; i<u8.byteLength; i += frame_size)
+      yield u8.slice(i, i+frame_size);}
 
   const { assert: assert$5 } = require('chai');
 
   describe('Async Decode CBOR Tags', (async () => {
 
-    for (let test_stream_mode of ['whole', 'halves', 'byte']) {
+    for (let test_stream_mode of ['whole', 'halves', 'frames', 'byte']) {
       describe(`streamed by ${test_stream_mode}`, (() => {
 
         let hex_to_u8_stream = hex_u8 =>
@@ -4738,7 +4745,7 @@
   describe('Async Decode CBOR Test Vectors', (() => {
     for (const test of test_vectors$1) {
       describe(`"${test.hex}" to ${test.diagnostic || JSON.stringify(test.decoded)}`, (() => {
-        for (let test_stream_mode of ['whole', 'halves', 'byte']) {
+        for (let test_stream_mode of ['whole', 'halves', 'frames', 'byte']) {
           const it_fn = test.skip ? it.skip : test.only ? it.only : it;
           it_fn(`streamed by ${test_stream_mode}`, (async () => {
             const u8 = hex_to_u8(test.hex);
@@ -4762,7 +4769,7 @@
   const { assert: assert$7 } = require('chai');
 
   describe('Async Roundtrip Large Objects', (() => {
-    for (let test_stream_mode of ['whole', 'halves' ]) {
+    for (let test_stream_mode of ['whole', 'halves', 'frames' ]) {
       describe(`streamed by ${test_stream_mode}`, (() => {
         it(`long string`, (async () => {
           const s_128k = 'testing '.repeat(128*1024/8);
@@ -4808,6 +4815,31 @@
           const dec_val = await decode_stream(
             u8_as_test_stream(enc_val, test_stream_mode));
           assert$7.deepEqual(dec_val, sa_70_256); }) ); }) ); } }) );
+
+  const { assert: assert$8 } = require('chai');
+
+  describe('Async Iterator Decode Stream', (() => {
+    let known_hex_data =[
+      'a2627473c1fb41d6fbc6ae0000006872656164696e677348db0f494083f9a23e',
+      'a2627473c1fb41d6fbca320000006872656164696e677348f304b53ff304353f',
+      'a2627473c1fb41d6fbcdb60000006872656164696e6773488e5d1340d95bde3e',
+      'a2627473c1fb41d6fbd13a0000006872656164696e6773481872313f3baab83f',
+      'a2627473c1fb41d6fbd4be0000006872656164696e67734854f82d40b25abc3e',
+      'a2627473c1fb41d6fbd8420000006872656164696e677348d95bde3e8e5d1340',
+      'a2627473c1fb41d6fbdbc60000006872656164696e6773483baab83f1872313f',];
+
+    let known_u8_data = hex_to_u8(known_hex_data.join(''));
+
+    for (let test_stream_mode of ['whole', 'halves', 'frames', 'byte' ]) {
+      it(`streamed by ${test_stream_mode}`, (async () => {
+        let obj_stream = aiter_decode_stream(
+          u8_as_test_stream(known_u8_data, test_stream_mode));
+
+        let idx = 0;
+        for await (let each of obj_stream) {
+          let u8_rt = encode$2(each);
+          let hex_rt = u8_to_hex(u8_rt);
+          assert$8.equal(hex_rt, known_hex_data[ idx++ ]);} }) ); } }) );
 
   (require('source-map-support') || {install(){}}).install();
 

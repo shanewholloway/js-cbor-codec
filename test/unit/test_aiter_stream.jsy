@@ -1,0 +1,29 @@
+const { assert } = require('chai')
+
+import { u8_to_hex, hex_to_u8 } from 'u8-utils'
+import { cbor_encode, cbor_aiter_decode_stream } from 'cbor-codec'
+import { u8_as_test_stream } from './_async_test_utils.jsy'
+
+describe @ 'Async Iterator Decode Stream', @::
+  let known_hex_data = @[]
+    'a2627473c1fb41d6fbc6ae0000006872656164696e677348db0f494083f9a23e',
+    'a2627473c1fb41d6fbca320000006872656164696e677348f304b53ff304353f',
+    'a2627473c1fb41d6fbcdb60000006872656164696e6773488e5d1340d95bde3e',
+    'a2627473c1fb41d6fbd13a0000006872656164696e6773481872313f3baab83f',
+    'a2627473c1fb41d6fbd4be0000006872656164696e67734854f82d40b25abc3e',
+    'a2627473c1fb41d6fbd8420000006872656164696e677348d95bde3e8e5d1340',
+    'a2627473c1fb41d6fbdbc60000006872656164696e6773483baab83f1872313f',
+
+  let known_u8_data = hex_to_u8 @ known_hex_data.join('')
+
+  for let test_stream_mode of ['whole', 'halves', 'frames', 'byte' ] ::
+    it @ `streamed by ${test_stream_mode}`, @::>
+      let obj_stream = cbor_aiter_decode_stream @
+        u8_as_test_stream(known_u8_data, test_stream_mode)
+
+      let idx = 0
+      for await let each of obj_stream ::
+        let u8_rt = cbor_encode(each)
+        let hex_rt = u8_to_hex(u8_rt)
+        assert.equal(hex_rt, known_hex_data[ idx++ ])
+
