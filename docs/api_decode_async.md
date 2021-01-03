@@ -39,7 +39,7 @@ import {cbor_aiter_decode_stream} from "cbor-codec/esm/decode_async.mjs"
 
 #### Sample Code
 
-```
+```javascript
 async function * demo_u8_stream() {
   yield hex_to_u8('a27164656d6f5f63626f725f737570706f7274c1fb')
   yield hex_to_u8('41d6fbc6534000006c736f6d655f6e756d62657273')

@@ -13,7 +13,7 @@
   import {
     hex_to_u8, u8_to_hex,
     u8_to_utf8, utf8_to_u8,
-    u8_concat, as_u8_buffer,
+    u8_concat, as_u8_buffer, u8_as_stream,
   } from "//cdn.jsdelivr.net/npm/cbor-codec/esm/index.mjs"
 </script>
 ```

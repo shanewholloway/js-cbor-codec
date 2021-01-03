@@ -37,7 +37,7 @@ import cbor_decode from "cbor-codec/esm/decode.mjs"
 
 #### Sample Code
 
-```
+```javascript
 let demo_data_u8 = hex_to_u8(
   'a27164656d6f5f63626f725f737570706f7274c1fb' +
   '41d6fbc6534000006c736f6d655f6e756d62657273' +
