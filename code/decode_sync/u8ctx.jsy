@@ -1,4 +1,6 @@
-import { U8DecodeBaseCtx, cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+import { as_u8_buffer } from '../u8_utils.jsy'
+import { cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+import { U8DecodeBaseCtx } from '../decode_common/u8ctx.jsy'
 
 export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
   static bind_decode_api(decoder) ::
@@ -11,11 +13,28 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
         .iter_decode_cbor(opt)
 
 
+  static get from_u8() ::
+    const inst0 = new this()
+
+    return (u8, types) => ::
+      u8 = as_u8_buffer(u8)
+      const inst = @{}
+        __proto__: inst0
+        idx: 0, u8
+        _pop_types: inst0._pop_noop
+        _loc_proto_: @{}
+          get u8() :: return u8.slice(this.idx0, this.idx)
+
+      if types && types !== inst0.types ::
+        inst.types = types
+      return inst
+
+
   static bind_next_value(jmp, unknown) ::
     if null == unknown ::
       unknown = this._error_unknown
 
-    return function nextValue() ::
+    return function next_value() ::
       const doneTypes = this._pop_types()
 
       const type_b = this.u8[ this.idx ++ ]
@@ -34,11 +53,11 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
     try ::
       if inc_location ::
         const idx0 = this.idx || 0
-        const value = this.nextValue()
+        const value = this.next_value()
         const idx = this.idx
         return {__proto__: this._loc_proto_, value, idx0, idx}
 
-      return this.nextValue()
+      return this.next_value()
     catch e ::
       if cbor_done_sym === e ::
         idx = this.idx
@@ -60,7 +79,7 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
     try ::
       while true ::
         idx0 = idx
-        const value = this.nextValue()
+        const value = this.next_value()
         idx = this.idx
 
         yield inc_location
@@ -78,9 +97,9 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
           idx0, idx, incomplete: true
       throw e
 
-  move(byteWidth) ::
+  move(count_bytes) ::
     const idx0 = this.idx
-    const idx_next = idx0 + byteWidth
+    const idx_next = idx0 + count_bytes
     if idx_next >= this.byteLength ::
       throw cbor_eoc_sym
     this.idx = idx_next

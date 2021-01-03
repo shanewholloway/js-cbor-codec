@@ -55,7 +55,7 @@ export const _cbor_jmp_sync = @{}
 
     const accum = ctx.types.list(len)
     for let i=0; i<len; i++ ::
-      accum @ i, ctx.nextValue()
+      accum @ i, ctx.next_value()
 
     return undefined === accum.done ? accum.res : accum.done()
 
@@ -65,8 +65,8 @@ export const _cbor_jmp_sync = @{}
 
     const accum = ctx.types.map(len)
     for let i=0; i<len; i++ ::
-      const key = ctx.nextValue()
-      const value = ctx.nextValue()
+      const key = ctx.next_value()
+      const value = ctx.next_value()
       accum @ key, value
 
     return undefined === accum.done ? accum.res : accum.done()
@@ -77,7 +77,7 @@ export const _cbor_jmp_sync = @{}
   as_stream(ctx, accum) ::
     let i = 0
     while true ::
-      const value = ctx.nextValue()
+      const value = ctx.next_value()
       if cbor_break_sym === value ::
         return undefined === accum.done ? accum.res : accum.done()
 
@@ -85,11 +85,11 @@ export const _cbor_jmp_sync = @{}
 
   as_pair_stream(ctx, accum) ::
     while true ::
-      const key = ctx.nextValue()
+      const key = ctx.next_value()
       if cbor_break_sym === key ::
         return undefined === accum.done ? accum.res : accum.done()
 
-      accum @ key, ctx.nextValue()
+      accum @ key, ctx.next_value()
 
 
   // floating point primitives
@@ -118,8 +118,8 @@ export const _cbor_jmp_sync = @{}
       const tag_handler = tags_lut.get(tag)
       if tag_handler ::
         const res = tag_handler(ctx, tag)
-        const body = ctx.nextValue()
+        const body = ctx.next_value()
         return undefined === res ? body : res(body)
 
-      return { tag, body: ctx.nextValue() }
+      return { tag, body: ctx.next_value() }
 

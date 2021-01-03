@@ -68,6 +68,9 @@ function u8_concat(parts) {
     i += u8_part.byteLength;}
   return u8}
 
+async function * u8_as_stream(u8) {
+  yield as_u8_buffer(u8);}
+
 const objIs = Object.is;
 const _obj_kind_ = Function.call.bind(Object.prototype.toString);
 
@@ -533,10 +536,11 @@ const decode_types ={
 
 
 
-function _with_result_fn(res, fn, done) {
+function _with_result(res, fn, done) {
   fn = fn.bind(res);
-  fn.done = done;
   fn.res = res;
+  if (undefined !== done) {
+    fn.done = done;}
   return fn}
 
 function _obj_push(i, v) {this.push(v);}
@@ -545,20 +549,15 @@ function _bytes_done() {
   return u8_concat(res)}
 
 function build_bytes(ctx) {
-  return _with_result_fn([], _obj_push, _bytes_done) }
+  return _with_result([], _obj_push, _bytes_done) }
 
 function _utf8_done() {
   const res = this.res; this.res = null;
   return res.join('')}
 function build_utf8(ctx) {
-  return _with_result_fn([], _obj_push, _utf8_done) }
+  return _with_result([], _obj_push, _utf8_done) }
 
 
-
-function _with_result(res, fn) {
-  fn = fn.bind(res);
-  fn.res = res;
-  return fn}
 
 function _obj_set(k, v) {this[k] = v;}
 
@@ -571,7 +570,7 @@ function build_Array(ctx, len) {
 
 
 const decode_Map ={
-  empty_map() {return new Map()}
+  empty_map: () => new Map()
 , map: build_Map
 , map_stream: build_Map};
 
@@ -581,7 +580,7 @@ function build_Map(ctx) {
 
 
 const decode_Set ={
-  empty_list() {return new Set()}
+  empty_list: () => new Set()
 , list: build_Set
 , list_stream: build_Set};
 
@@ -842,40 +841,21 @@ class U8DecodeBaseCtx {
 
   static subclass(types, jmp, unknown) {
     class U8DecodeCtx_ extends this {}
-    const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown);
-
-    Object.assign(U8DecodeCtx_.prototype,{
-      nextValue, decode_types: types, types} );
+    let {prototype} = U8DecodeCtx_;
+    prototype.next_value = U8DecodeCtx_.bind_next_value(jmp, unknown);
+    prototype.types = types;
     return U8DecodeCtx_}
 
 
-  static get from_u8() {
-    const inst0 = new this();
-    const inst0_types = inst0.decode_types;
-
-    return (u8, types) => {
-      u8 = as_u8_buffer(u8);
-      const inst ={
-        __proto__: inst0
-      , idx: 0, u8
-      , _pop_types: noop$1
-      , _loc_proto_:{
-          get u8() {return u8.slice(this.idx0, this.idx)} } };
-
-      if (types !== inst0_types) {
-        inst.decode_types = types;
-        inst.types = types;}
-      return inst} }
-
   from_nested_u8(u8) {
     return this.constructor
-      .from_u8(u8, this.decode_types)}
+      .from_u8(u8, this.types)}
 
 
   push_types(overlay_types) {
-    let {types, _pop_types} = this;
+    let {types, _pop_types, _pop_noop} = this;
 
-    if (noop$1 === _pop_types) {
+    if (_pop_noop === _pop_types) {
       _pop_types = () => {
         this.types = types;}; }
 
@@ -887,19 +867,18 @@ class U8DecodeBaseCtx {
   _error_unknown(ctx, type_b) {
     throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
+  _pop_noop() {}
+
   // Subclass responsibilities:
   //   static bind_decode_api(decoder)
   //   static bind_next_value(jmp, unknown) ::
-  //   move(byteWidth) ::
+  //   move(count_bytes) ::
 
   // Possible Subclass responsibilities:
   //   decode(inc_location) ::
   //   *iter_decode(inc_location) ::
   //   async decode_stream(inc_location) ::
   }//   async * aiter_decode_stream(inc_location) ::
-
-
-function noop$1() {}
 
 class U8SyncDecodeCtx extends U8DecodeBaseCtx {
   static bind_decode_api(decoder) {
@@ -912,11 +891,28 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
         .iter_decode_cbor(opt);}
 
 
+  static get from_u8() {
+    const inst0 = new this();
+
+    return (u8, types) => {
+      u8 = as_u8_buffer(u8);
+      const inst ={
+        __proto__: inst0
+      , idx: 0, u8
+      , _pop_types: inst0._pop_noop
+      , _loc_proto_:{
+          get u8() {return u8.slice(this.idx0, this.idx)} } };
+
+      if (types && types !== inst0.types) {
+        inst.types = types;}
+      return inst} }
+
+
   static bind_next_value(jmp, unknown) {
     if (null == unknown) {
       unknown = this._error_unknown;}
 
-    return function nextValue() {
+    return function next_value() {
       const doneTypes = this._pop_types();
 
       const type_b = this.u8[ this.idx ++ ];
@@ -935,11 +931,11 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
     try {
       if (inc_location) {
         const idx0 = this.idx || 0;
-        const value = this.nextValue();
+        const value = this.next_value();
         const idx = this.idx;
         return {__proto__: this._loc_proto_, value, idx0, idx}}
 
-      return this.nextValue()}
+      return this.next_value()}
     catch (e) {
       if (cbor_done_sym === e) {
         idx = this.idx;
@@ -961,7 +957,7 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
     try {
       while (true) {
         idx0 = idx;
-        const value = this.nextValue();
+        const value = this.next_value();
         idx = this.idx;
 
         yield inc_location
@@ -979,9 +975,9 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
           idx0, idx, incomplete: true}; }
       throw e} }
 
-  move(byteWidth) {
+  move(count_bytes) {
     const idx0 = this.idx;
-    const idx_next = idx0 + byteWidth;
+    const idx_next = idx0 + count_bytes;
     if (idx_next >= this.byteLength) {
       throw cbor_eoc_sym}
     this.idx = idx_next;
@@ -1041,7 +1037,7 @@ const _cbor_jmp_sync ={
 
     const accum = ctx.types.list(len);
     for (let i=0; i<len; i++) {
-      accum(i, ctx.nextValue()); }
+      accum(i, ctx.next_value()); }
 
     return undefined === accum.done ? accum.res : accum.done()}
 
@@ -1051,8 +1047,8 @@ const _cbor_jmp_sync ={
 
     const accum = ctx.types.map(len);
     for (let i=0; i<len; i++) {
-      const key = ctx.nextValue();
-      const value = ctx.nextValue();
+      const key = ctx.next_value();
+      const value = ctx.next_value();
       accum(key, value); }
 
     return undefined === accum.done ? accum.res : accum.done()}
@@ -1063,7 +1059,7 @@ const _cbor_jmp_sync ={
   as_stream(ctx, accum) {
     let i = 0;
     while (true) {
-      const value = ctx.nextValue();
+      const value = ctx.next_value();
       if (cbor_break_sym === value) {
         return undefined === accum.done ? accum.res : accum.done()}
 
@@ -1071,11 +1067,11 @@ const _cbor_jmp_sync ={
 
 , as_pair_stream(ctx, accum) {
     while (true) {
-      const key = ctx.nextValue();
+      const key = ctx.next_value();
       if (cbor_break_sym === key) {
         return undefined === accum.done ? accum.res : accum.done()}
 
-      accum(key, ctx.nextValue()); } }
+      accum(key, ctx.next_value()); } }
 
 
 , // floating point primitives
@@ -1104,17 +1100,17 @@ const _cbor_jmp_sync ={
       const tag_handler = tags_lut.get(tag);
       if (tag_handler) {
         const res = tag_handler(ctx, tag);
-        const body = ctx.nextValue();
+        const body = ctx.next_value();
         return undefined === res ? body : res(body)}
 
-      return { tag, body: ctx.nextValue() }} } };
+      return { tag, body: ctx.next_value() }} } };
 
 class CBORDecoderBasic extends CBORDecoderBase {
-  // decode(inc_location) ::
+  // decode(u8, opt) ::
   static decode(u8, opt) {
     return new this().decode(u8, opt)}
 
-  // *iter_decode(inc_location) ::
+  // *iter_decode(u8, opt) ::
   static iter_decode(u8, opt) {
     return new this().iter_decode(u8, opt)}
 
@@ -1137,6 +1133,26 @@ CBORDecoder.compile({
 
 const {decode, iter_decode} = new CBORDecoder();
 
+async function * _aiter_move_stream(u8_stream) {
+  let n = yield;
+  let i0=0, i1=n;
+  let u8_tail;
+
+  for await (let u8 of u8_stream) {
+    u8 = as_u8_buffer(u8);
+    if (u8_tail) {
+      u8 = u8_concat([u8_tail, u8]);
+      u8_tail = void 0;}
+
+    while (i1 <= u8.byteLength) {
+      n = yield u8.subarray(i0, i1);
+      i0 = i1; i1 += n;}
+
+    u8_tail = i0 >= u8.byteLength ? void 0
+      : u8.subarray(i0);
+    i0 = 0; i1 = n;} }
+
+
 class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
   static bind_decode_api(decoder) {
     decoder.decode_stream = (u8_stream, opt) =>
@@ -1147,16 +1163,36 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
       this.from_u8_stream(u8_stream, decoder.types)
         .aiter_decode_cbor(opt);}
 
+
+  static from_u8(u8, types) {
+    return this.from_u8_stream(u8_as_stream(u8), types)}
+
+  static get from_u8_stream() {
+    const inst0 = new this();
+
+    return (u8_stream, types) => {
+      let u8_aiter = _aiter_move_stream(u8_stream);
+      u8_aiter.next(); // prime the async generator
+
+      const inst ={
+        __proto__: inst0
+      , _pop_types: inst0._pop_noop
+      , u8_aiter};
+
+      if (types && types !== inst0.types) {
+        inst.types = types;}
+
+      return inst} }
+
   static bind_next_value(jmp, unknown) {
     if (null == unknown) {
       unknown = this._error_unknown;}
 
-    return async function nextValue() {
+    return async function next_value() {
       const doneTypes = this._pop_types();
 
-      const type_b = this.u8[ this.idx ++ ];
+      const [type_b] = await this.move_stream(1);
       if (undefined === type_b) {
-        this.idx--;
         throw cbor_done_sym}
 
       const decode = jmp[type_b] || unknown;
@@ -1165,65 +1201,31 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
       return undefined === doneTypes
         ? res : await doneTypes(res)} }
 
-  static from_u8_stream(...args) {
-    return this.from_u8(...args)}
 
-  async decode_cbor(inc_location) {
+  async decode_cbor() {
     try {
-      if (inc_location) {
-        const idx0 = this.idx || 0;
-        const value = await this.nextValue();
-        const idx = this.idx;
-        return {__proto__: this._loc_proto_, value, idx0, idx}}
-
-      return await this.nextValue()}
+      return await this.next_value()}
     catch (e) {
-      if (cbor_done_sym === e) {
-        idx = this.idx;
-        if (idx0 == idx) {
-          e = new Error(`End of content`); }
+      if (cbor_done_sym !== e) {
+        throw e}
 
-        else {
-          e = new Error(`End of partial frame`);
-          e.cbor_partial ={
-            __proto__: _loc_proto_,
-            idx0, idx, incomplete: true}; } }
-      throw e} }
+      throw new Error(`End of content`) } }
 
 
-  async *aiter_decode_cbor(inc_location) {
-    let {_loc_proto_} = this;
-    let idx0, idx = this.idx || 0;
-
+  async *aiter_decode_cbor() {
     try {
-      while (true) {
-        idx0 = idx;
-        const value = await this.nextValue();
-        idx = this.idx;
-
-        yield inc_location
-          ? { __proto__: _loc_proto_, idx0, idx, value }
-          : value;} }
-
+      while (1) {
+        yield await this.next_value();} }
     catch (e) {
-      if (cbor_done_sym === e) {
-        idx = this.idx;
-        if (idx0 == idx) {return}
+      if (cbor_done_sym !== e) {
+        throw e} } }
 
-        e = new Error(`End of partial frame`);
-        e.cbor_partial ={
-          __proto__: _loc_proto_,
-          idx0, idx, incomplete: true}; }
-      throw e} }
 
-  async move(byteWidth) {
-    const idx0 = this.idx;
-    const idx_next = idx0 + byteWidth;
-    if (idx_next >= this.byteLength) {
-      await 0;
+  async move_stream(count_bytes) {
+    let tip = await this.u8_aiter.next(count_bytes);
+    if (tip.done) {
       throw cbor_eoc_sym}
-    this.idx = idx_next;
-    return idx0} }
+    return tip.value} }
 
 const _cbor_jmp_async ={
   __proto__: _cbor_jmp_base
@@ -1235,28 +1237,28 @@ const _cbor_jmp_async ={
 
 , cbor_w1(as_type) {
     return async function w1_as(ctx) {
-      const idx = await ctx.move(1);
-      return as_type(ctx, ctx.u8[idx]) } }
+      const u8 = await ctx.move_stream(1);
+      return as_type(ctx, u8[0]) } }
 
 , cbor_w2(as_type) {
     return async function w2_as(ctx) {
-      const u8 = ctx.u8, idx = await ctx.move(2);
-      const v = (u8[idx] << 8) | u8[idx+1];
+      const u8 = await ctx.move_stream(2);
+      const v = (u8[0] << 8) | u8[1];
       return as_type(ctx, v) } }
 
 , cbor_w4(as_type) {
     return async function w4_as(ctx) {
-      const u8 = ctx.u8, idx = await ctx.move(4);
+      const u8 = await ctx.move_stream(4);
 
-      const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+      const v = (u8[0] << 24) | (u8[1] << 16) | (u8[2] << 8) | u8[3];
       return as_type(ctx, (v >>> 0) ) } }// unsigned int32
 
 , cbor_w8(as_type) {
     return async function w8_as(ctx) {
-      const u8 = ctx.u8, idx = await ctx.move(8);
+      const u8 = await ctx.move_stream(8);
 
-      const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
-      const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
+      const v_hi = (u8[0] << 24) | (u8[1] << 16) | (u8[2] << 8) | u8[3];
+      const v_lo = (u8[4] << 24) | (u8[5] << 16) | (u8[6] << 8) | u8[7];
       const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
       return as_type(ctx, u64) } }
 
@@ -1264,14 +1266,14 @@ const _cbor_jmp_async ={
 , // basic types
 
   async as_bytes(ctx, len) {
-    const u8 = ctx.u8, idx = await ctx.move(len);
+    const u8 = await ctx.move_stream(len);
     return ctx.types.bytes(
-      u8.subarray(idx, idx + len)) }
+      u8.subarray(0, len)) }
 
 , async as_utf8(ctx, len) {
-    const u8 = ctx.u8, idx = await ctx.move(len);
+    const u8 = await ctx.move_stream(len);
     return ctx.types.utf8(
-      u8.subarray(idx, idx + len)) }
+      u8.subarray(0, len)) }
 
 , async as_list(ctx, len) {
     if (0 === len) {
@@ -1279,7 +1281,7 @@ const _cbor_jmp_async ={
 
     const accum = ctx.types.list(len);
     for (let i=0; i<len; i++) {
-      accum(i, await ctx.nextValue()); }
+      accum(i, await ctx.next_value()); }
 
     return undefined === accum.done ? accum.res : accum.done()}
 
@@ -1289,8 +1291,8 @@ const _cbor_jmp_async ={
 
     const accum = ctx.types.map(len);
     for (let i=0; i<len; i++) {
-      const key = await ctx.nextValue();
-      const value = await ctx.nextValue();
+      const key = await ctx.next_value();
+      const value = await ctx.next_value();
       accum(key, value); }
 
     return undefined === accum.done ? accum.res : accum.done()}
@@ -1301,7 +1303,7 @@ const _cbor_jmp_async ={
   async as_stream(ctx, accum) {
     let i = 0;
     while (true) {
-      const value = await ctx.nextValue();
+      const value = await ctx.next_value();
       if (cbor_break_sym === value) {
         return undefined === accum.done ? accum.res : accum.done()}
 
@@ -1309,27 +1311,27 @@ const _cbor_jmp_async ={
 
 , async as_pair_stream(ctx, accum) {
     while (true) {
-      const key = await ctx.nextValue();
+      const key = await ctx.next_value();
       if (cbor_break_sym === key) {
         return undefined === accum.done ? accum.res : accum.done()}
 
-      accum(key, await ctx.nextValue()); } }
+      accum(key, await ctx.next_value()); } }
 
 
 , // floating point primitives
 
   async as_float16(ctx) {
-    const u8 = ctx.u8, idx = await ctx.move(2);
+    const u8 = await ctx.move_stream(2);
     return ctx.types.float16(
-      u8.subarray(idx, idx+2)) }
+      u8.subarray(0, 2)) }
 
 , async as_float32(ctx) {
-    const u8 = ctx.u8, idx = await ctx.move(4);
-    return new DataView(u8.buffer, idx, 4).getFloat32(0)}
+    const u8 = await ctx.move_stream(4);
+    return new DataView(u8.buffer, u8.byteOffset, 4).getFloat32(0)}
 
 , async as_float64(ctx) {
-    const u8 = ctx.u8, idx = await ctx.move(8);
-    return new DataView(u8.buffer, idx, 8).getFloat64(0)}
+    const u8 = await ctx.move_stream(8);
+    return new DataView(u8.buffer, u8.byteOffset, 8).getFloat64(0)}
 
 
 , // tag values
@@ -1342,17 +1344,17 @@ const _cbor_jmp_async ={
       const tag_handler = tags_lut.get(tag);
       if (tag_handler) {
         const res = await tag_handler(ctx, tag);
-        const body = await ctx.nextValue();
+        const body = await ctx.next_value();
         return undefined === res ? body : res(body)}
 
-      return { tag, body: await ctx.nextValue() }} } };
+      return { tag, body: await ctx.next_value() }} } };
 
 class CBORAsyncDecoderBasic extends CBORDecoderBase {
-  // async decode_stream(inc_location) ::
+  // async decode_stream(u8_stream, opt) ::
   static decode_stream(u8_stream, opt) {
     return new this().decode_stream(u8_stream, opt)}
 
-  // async *aiter_decode_stream(inc_location) ::
+  // async *aiter_decode_stream(u8_stream, opt) ::
   static aiter_decode_stream(u8_stream, opt) {
     return new this().aiter_decode_stream(u8_stream, opt)}
 
@@ -1375,5 +1377,5 @@ CBORAsyncDecoder.compile({
 
 const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
-export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, use_encoder_for, utf8_to_u8 };
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, use_encoder_for, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

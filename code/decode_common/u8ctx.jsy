@@ -1,44 +1,24 @@
-import { as_u8_buffer } from '../u8_utils.jsy'
 export { cbor_eoc_sym, cbor_done_sym } from './jump.jsy'
 
 export class U8DecodeBaseCtx ::
 
   static subclass(types, jmp, unknown) ::
     class U8DecodeCtx_ extends this ::
-    const nextValue = U8DecodeCtx_.bind_next_value(jmp, unknown)
-
-    Object.assign @ U8DecodeCtx_.prototype, @{}
-      nextValue, decode_types: types, types
+    let {prototype} = U8DecodeCtx_
+    prototype.next_value = U8DecodeCtx_.bind_next_value(jmp, unknown)
+    prototype.types = types
     return U8DecodeCtx_
 
 
-  static get from_u8() ::
-    const inst0 = new this()
-    const inst0_types = inst0.decode_types
-
-    return (u8, types) => ::
-      u8 = as_u8_buffer(u8)
-      const inst = @{}
-        __proto__: inst0
-        idx: 0, u8
-        _pop_types: noop
-        _loc_proto_: @{}
-          get u8() :: return u8.slice(this.idx0, this.idx)
-
-      if types !== inst0_types ::
-        inst.decode_types = types
-        inst.types = types
-      return inst
-
   from_nested_u8(u8) ::
     return this.constructor
-      .from_u8(u8, this.decode_types)
+      .from_u8(u8, this.types)
 
 
   push_types(overlay_types) ::
-    let {types, _pop_types} = this
+    let {types, _pop_types, _pop_noop} = this
 
-    if noop === _pop_types ::
+    if _pop_noop === _pop_types ::
       _pop_types = () => ::
         this.types = types
 
@@ -50,10 +30,12 @@ export class U8DecodeBaseCtx ::
   _error_unknown(ctx, type_b) ::
     throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
 
+  _pop_noop() {}
+
   // Subclass responsibilities:
   //   static bind_decode_api(decoder)
   //   static bind_next_value(jmp, unknown) ::
-  //   move(byteWidth) ::
+  //   move(count_bytes) ::
 
   // Possible Subclass responsibilities:
   //   decode(inc_location) ::
@@ -61,6 +43,4 @@ export class U8DecodeBaseCtx ::
   //   async decode_stream(inc_location) ::
   //   async * aiter_decode_stream(inc_location) ::
 
-
-function noop() {}
 

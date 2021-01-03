@@ -7,11 +7,11 @@ import { _cbor_jmp_sync } from './jump.jsy'
 export * from './jump.jsy'
 
 export class CBORDecoderBasic extends CBORDecoderBase ::
-  // decode(inc_location) ::
+  // decode(u8, opt) ::
   static decode(u8, opt) ::
     return new this().decode(u8, opt)
 
-  // *iter_decode(inc_location) ::
+  // *iter_decode(u8, opt) ::
   static iter_decode(u8, opt) ::
     return new this().iter_decode(u8, opt)
 

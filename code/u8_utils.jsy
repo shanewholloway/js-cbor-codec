@@ -1,5 +1,6 @@
+import { as_u8_buffer } from 'u8-utils'
 
-export ::
+export {
   as_u8_buffer,
   u8_concat,
 
@@ -9,5 +10,8 @@ export ::
   u8_to_hex,
   hex_to_u8,
 
-from 'u8-utils'
+} from 'u8-utils'
+
+export async function * u8_as_stream(u8) ::
+  yield as_u8_buffer(u8)
 

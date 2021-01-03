@@ -1,54 +1,53 @@
 const { assert } = require('chai')
 
 import { u8_to_hex } from 'u8-utils'
-
 import { cbor_encode, cbor_decode_stream } from 'cbor-codec'
+import { u8_as_test_stream } from './_async_test_utils.jsy'
 
-function u8_as_stream(u8) ::
-  return u8
+describe @ 'Async Roundtrip Large Objects', @::
+  for let test_stream_mode of ['whole', 'halves' ] ::
+    describe @ `streamed by ${test_stream_mode}`, @::
+      it @ `long string`, @::>
+        const s_128k = 'testing '.repeat(128*1024/8)
 
-describe @ 'Async Roundtrip Large Objects', @::>
-  it @ `long string`, @::>
-    const s_128k = 'testing '.repeat(128*1024/8)
+        const enc_val = cbor_encode @ s_128k
+        assert.equal @ enc_val.byteLength, 0x20000 + 1 + 4
 
-    const enc_val = cbor_encode @ s_128k
-    assert.equal @ enc_val.byteLength, 0x20000 + 1 + 4
+        const dec_val = await cbor_decode_stream @
+          u8_as_test_stream(enc_val, test_stream_mode)
+        assert.deepEqual @ dec_val, s_128k
 
-    const dec_val = await cbor_decode_stream @
-      u8_as_stream(enc_val)
-    assert.deepEqual @ dec_val, s_128k
+      it @ `[null] * 256`, @::>
+        const a_256 = Array(256).fill(null)
 
-  it @ `[null] * 256`, @::>
-    const a_256 = Array(256).fill(null)
+        const enc_val = cbor_encode @ a_256
+        assert.equal @ enc_val.byteLength, 1 + 2 + a_256.length * (1)
 
-    const enc_val = cbor_encode @ a_256
-    assert.equal @ enc_val.byteLength, 1 + 2 + a_256.length * (1)
+        const dec_val = await cbor_decode_stream @
+          u8_as_test_stream(enc_val, test_stream_mode)
+        assert.deepEqual @ dec_val, a_256
 
-    const dec_val = await cbor_decode_stream @
-      u8_as_stream(enc_val)
-    assert.deepEqual @ dec_val, a_256
+      it @ `['slot'] * 256`, @::>
 
-  it @ `['slot'] * 256`, @::>
+        const sa_256 = Array(256).fill('slot')
 
-    const sa_256 = Array(256).fill('slot')
+        const enc_val = cbor_encode @ sa_256
+        assert.equal @ enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4)
 
-    const enc_val = cbor_encode @ sa_256
-    assert.equal @ enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4)
-
-    const dec_val = await cbor_decode_stream @
-      u8_as_stream(enc_val)
-    assert.deepEqual @ dec_val, sa_256
+        const dec_val = await cbor_decode_stream @
+          u8_as_test_stream(enc_val, test_stream_mode)
+        assert.deepEqual @ dec_val, sa_256
 
 
-  it @ `[['slot'] * 256] * 70`, @::>
+      it @ `[['slot'] * 256] * 70`, @::>
 
-    const sa_256 = Array(256).fill('slot')
-    const sa_70_256 = Array(70).fill(sa_256)
+        const sa_256 = Array(256).fill('slot')
+        const sa_70_256 = Array(70).fill(sa_256)
 
-    const enc_val = cbor_encode @ sa_70_256
-    assert.equal @ enc_val.byteLength,
-      1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4))
+        const enc_val = cbor_encode @ sa_70_256
+        assert.equal @ enc_val.byteLength,
+          1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4))
 
-    const dec_val = await cbor_decode_stream @
-      u8_as_stream(enc_val)
-    assert.deepEqual @ dec_val, sa_70_256
+        const dec_val = await cbor_decode_stream @
+          u8_as_test_stream(enc_val, test_stream_mode)
+        assert.deepEqual @ dec_val, sa_70_256

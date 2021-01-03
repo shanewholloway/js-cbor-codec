@@ -13,7 +13,7 @@ export const decode_types = @{}
   bytes(u8) :: return u8
   bytes_stream: build_bytes
 
-  utf8(u8) :: return u8_to_utf8 @ u8
+  utf8(u8) :: return u8_to_utf8(u8)
   utf8_stream: build_utf8
 
 
@@ -27,10 +27,11 @@ export const decode_types = @{}
 
 
 
-function _with_result_fn(res, fn, done) ::
+function _with_result(res, fn, done) ::
   fn = fn.bind(res)
-  fn.done = done
   fn.res = res
+  if undefined !== done ::
+    fn.done = done
   return fn
 
 function _obj_push(i, v) :: this.push(v)
@@ -39,20 +40,15 @@ function _bytes_done() ::
   return u8_concat(res)
 
 function build_bytes(ctx) ::
-  return _with_result_fn @ [], _obj_push, _bytes_done
+  return _with_result @ [], _obj_push, _bytes_done
 
 function _utf8_done() ::
   const res = this.res; this.res = null
   return res.join('')
 function build_utf8(ctx) ::
-  return _with_result_fn @ [], _obj_push, _utf8_done
+  return _with_result @ [], _obj_push, _utf8_done
 
 
-
-function _with_result(res, fn) ::
-  fn = fn.bind(res)
-  fn.res = res
-  return fn
 
 function _obj_set(k, v) :: this[k] = v
 
@@ -65,7 +61,7 @@ function build_Array(ctx, len) ::
 
 
 export const decode_Map = @{}
-  empty_map() :: return new Map()
+  empty_map: () => new Map()
   map: build_Map
   map_stream: build_Map
 
@@ -75,7 +71,7 @@ function build_Map(ctx) ::
 
 
 export const decode_Set = @{}
-  empty_list() :: return new Set()
+  empty_list: () => new Set()
   list: build_Set
   list_stream: build_Set
 

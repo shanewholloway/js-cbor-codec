@@ -1,0 +1,23 @@
+
+export async function * u8_as_test_stream(u8, test_stream_mode) ::
+  switch test_stream_mode ::
+    case undefined:
+    case 'whole':
+      yield u8
+      return
+
+    case 'halves':
+      let ih = u8.byteLength >> 1
+      yield u8.slice(0, ih)
+      yield u8.slice(ih)
+      return
+
+    case 'byte':
+      for let i=0; i<u8.length; i++ ::
+        yield u8.slice(i, i+1)
+      return
+
+    default:
+      throw new Error(`Unknown stream mode: ${test_stream_mode}`)
+
+

@@ -1,4 +1,26 @@
-import { U8DecodeBaseCtx, cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+import { u8_as_stream, as_u8_buffer, u8_concat } from '../u8_utils.jsy'
+import { cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+import { U8DecodeBaseCtx } from '../decode_common/u8ctx.jsy'
+
+async function * _aiter_move_stream(u8_stream) ::
+  let n = yield
+  let i0=0, i1=n
+  let u8_tail
+
+  for await let u8 of u8_stream ::
+    u8 = as_u8_buffer(u8)
+    if u8_tail ::
+      u8 = u8_concat([u8_tail, u8])
+      u8_tail = void 0
+
+    while i1 <= u8.byteLength ::
+      n = yield u8.subarray(i0, i1)
+      i0 = i1; i1 += n
+
+    u8_tail = i0 >= u8.byteLength ? void 0
+      : u8.subarray(i0)
+    i0 = 0; i1 = n
+
 
 export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
   static bind_decode_api(decoder) ::
@@ -10,16 +32,36 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
       this.from_u8_stream(u8_stream, decoder.types)
         .aiter_decode_cbor(opt)
 
+
+  static from_u8(u8, types) ::
+    return this.from_u8_stream(u8_as_stream(u8), types)
+
+  static get from_u8_stream() ::
+    const inst0 = new this()
+
+    return (u8_stream, types) => ::
+      let u8_aiter = _aiter_move_stream(u8_stream)
+      u8_aiter.next() // prime the async generator
+
+      const inst = @{}
+        __proto__: inst0
+        _pop_types: inst0._pop_noop
+        u8_aiter
+
+      if types && types !== inst0.types ::
+        inst.types = types
+
+      return inst
+
   static bind_next_value(jmp, unknown) ::
     if null == unknown ::
       unknown = this._error_unknown
 
-    return async function nextValue() ::
+    return async function next_value() ::
       const doneTypes = this._pop_types()
 
-      const type_b = this.u8[ this.idx ++ ]
+      const [type_b] = await this.move_stream(1)
       if undefined === type_b ::
-        this.idx--
         throw cbor_done_sym
 
       const decode = jmp[type_b] || unknown
@@ -28,63 +70,29 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
       return undefined === doneTypes
         ? res : await doneTypes(res)
 
-  static from_u8_stream(...args) ::
-    return this.from_u8(...args)
 
-  async decode_cbor(inc_location) ::
+  async decode_cbor() ::
     try ::
-      if inc_location ::
-        const idx0 = this.idx || 0
-        const value = await this.nextValue()
-        const idx = this.idx
-        return {__proto__: this._loc_proto_, value, idx0, idx}
-
-      return await this.nextValue()
+      return await this.next_value()
     catch e ::
-      if cbor_done_sym === e ::
-        idx = this.idx
-        if idx0 == idx ::
-          e = new Error @ `End of content`
+      if cbor_done_sym !== e ::
+        throw e
 
-        else ::
-          e = new Error @ `End of partial frame`
-          e.cbor_partial = @{}
-            __proto__: _loc_proto_,
-            idx0, idx, incomplete: true
-      throw e
-      
+      throw new Error @ `End of content`
 
-  async *aiter_decode_cbor(inc_location) ::
-    let {_loc_proto_} = this
-    let idx0, idx = this.idx || 0
 
+  async *aiter_decode_cbor() ::
     try ::
-      while true ::
-        idx0 = idx
-        const value = await this.nextValue()
-        idx = this.idx
-
-        yield inc_location
-          ? { __proto__: _loc_proto_, idx0, idx, value }
-          : value
-
+      while 1 ::
+        yield await this.next_value()
     catch e ::
-      if cbor_done_sym === e ::
-        idx = this.idx
-        if idx0 == idx :: return
+      if cbor_done_sym !== e ::
+        throw e
 
-        e = new Error @ `End of partial frame`
-        e.cbor_partial = @{}
-          __proto__: _loc_proto_,
-          idx0, idx, incomplete: true
-      throw e
 
-  async move(byteWidth) ::
-    const idx0 = this.idx
-    const idx_next = idx0 + byteWidth
-    if idx_next >= this.byteLength ::
-      await 0
+  async move_stream(count_bytes) ::
+    let tip = await this.u8_aiter.next(count_bytes)
+    if tip.done ::
       throw cbor_eoc_sym
-    this.idx = idx_next
-    return idx0
+    return tip.value
 
