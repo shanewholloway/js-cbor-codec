@@ -1,8 +1,12 @@
 import { bind_encoder_context } from './ctx.jsy'
 
 export class CBOREncoderBasic ::
-  static create(stream) :: return new this(stream)
-  static encode(v) :: return new this().encode(v)
+  static get create() ::
+    return stream => new this(stream)
+  static get encode() ::
+    return new this().encode
+  static get encode_stream() ::
+    return stream => new this(stream).encode
 
   constructor(stream) ::
     this.encode = bind_encoder_context(stream)

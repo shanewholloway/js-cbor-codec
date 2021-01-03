@@ -7,7 +7,7 @@ export * from './ctx.jsy'
 
 export class CBOREncoder extends CBOREncoderBasic ::
 
-CBOREncoder.prototype._encoder_map = basic_tag_encoders @ new Map()
+CBOREncoder.prototype._encoder_map = basic_tag_encoders(new Map())
 
 
 

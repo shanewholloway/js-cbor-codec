@@ -1,6 +1,7 @@
 export * from './encode/basic.jsy'
 export * from './encode/index.jsy'
 export { encode, cbor_encode } from './encode.jsy'
+export { encode_stream, cbor_encode_stream } from './encode.jsy'
 
 
 export * from './decode_common/index.jsy'

@@ -94,6 +94,8 @@ for await (let each of obj_stream)
 - `cbor_encode(value[, options])` encodes objects and values into a CBOR encoded data frame.
 - `class CBOREncoder`
 - `encode(value[, options])` is an alias for `cbor_encode()
+- `cbor_encode_stream(outstream)` returns a bound `cbor_encode(value[, options])` function that outputs to `outstream`.
+- `encode_stream(outstream)` is an alias for `cbor_encode_stream()
 
 ```javascript
 import {cbor_encode} from "cbor-codec"
@@ -134,6 +136,8 @@ as well as support for iterables into CBOR array streams.
 - `cbor_encode(value[, options])` encodes objects and values into a CBOR encoded data frame.
 - `class CBOREncoderFull`
 - `encode(value[, options])` is an alias for `cbor_encode()
+- `cbor_encode_stream(outstream)` returns a bound `cbor_encode(value[, options])` function that outputs to `outstream`.
+- `encode_stream(outstream)` is an alias for `cbor_encode_stream()
 
 ```javascript
 import {cbor_encode} from "cbor-codec/esm/encode_full.mjs"

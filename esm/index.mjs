@@ -215,7 +215,7 @@ function bind_ctx_prototype() {
   return {
     __proto__: null,
 
-    // raw_frame, flush
+    // raw_frame,
     // add_w0, add_w1, add_int,
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
@@ -312,18 +312,19 @@ function bind_ctx_prototype() {
 
 
 function bind_encoder_context(stream) {
-  const blockSize = 65536;
-  const u8_tip = new Uint8Array(blockSize);
-  const dv_tip = new DataView(u8_tip.buffer);
-
   let idx_frame = 0, idx_next = 0;
   if (null == stream) {
-    stream = u8concat_stream();}
+    stream = u8concat_outstream();}
+  else if (!stream.flush && stream[Symbol.asyncIterator]) {
+    stream = aiter_outstream(stream);}
+
+  const block_size = stream.block_size || 65536;
+  const u8_tip = new Uint8Array(block_size);
+  const dv_tip = new DataView(u8_tip.buffer);
 
   const ctx ={
     __proto__: ctx_prototype
   , raw_frame
-  , flush
 
   , add_w0(bkind) {
       next_frame(bkind, 1);}
@@ -356,7 +357,16 @@ function bind_encoder_context(stream) {
       ctx.tag_encode(opt, v);}
     else if (opt.tag) {
       ctx.tag_encode(opt.tag, v);}
-    return ctx.flush()}
+
+    // flush complete cbor_encode op
+    if (idx_next === 0) {
+      return stream.flush(null)}
+
+    const blk = u8_tip.slice(0, idx_next);
+    idx_frame = idx_next = 0;
+    return stream.flush(blk)}
+
+
 
 
   function add_int(mask, v) {
@@ -398,7 +408,7 @@ function bind_encoder_context(stream) {
 
   function next_frame(bkind, frameWidth) {
     idx_frame = idx_next; idx_next += frameWidth;
-    if (idx_next > blockSize) {
+    if (idx_next > block_size) {
       stream.write(u8_tip.slice(0, idx_frame));
       idx_frame = 0;
       idx_next = frameWidth;}
@@ -410,7 +420,7 @@ function bind_encoder_context(stream) {
   function raw_frame(buf) {
     const len = buf.byteLength;
     idx_frame = idx_next; idx_next += len;
-    if (idx_next <= blockSize) {
+    if (idx_next <= block_size) {
       u8_tip.set(buf, idx_frame);
       return}
 
@@ -418,19 +428,11 @@ function bind_encoder_context(stream) {
       stream.write(u8_tip.slice(0, idx_frame)); }
 
     idx_frame = idx_next = 0;
-    stream.write(buf); }
-
-
-  function flush() {
-    if (idx_next !== 0) {
-      const blk = u8_tip.slice(0, idx_next);
-      idx_frame = idx_next = 0;
-      return stream.flush(blk)}
-    else return stream.flush(null)} }
+    stream.write(buf); } }
 
 
 
-function u8concat_stream() {
+function u8concat_outstream() {
   let blocks = [];
   return {
     write(blk) {blocks.push(blk);}
@@ -444,9 +446,28 @@ function u8concat_stream() {
       blocks = [];
       return u8} } }
 
+
+function aiter_outstream(aiter_out) {
+  let _x_tail;
+  return {
+    write(blk) {
+      _x_tail = aiter_out.next(blk);}
+
+  , async flush(blk) {
+      let tail = (null !== blk)
+        ? aiter_out.next(blk)
+        : _x_tail;
+
+      _x_tail = null;
+      return await tail} } }
+
 class CBOREncoderBasic {
-  static create(stream) {return new this(stream)}
-  static encode(v) {return new this().encode(v)}
+  static get create() {
+    return stream => new this(stream)}
+  static get encode() {
+    return new this().encode}
+  static get encode_stream() {
+    return stream => new this(stream).encode}
 
   constructor(stream) {
     this.encode = bind_encoder_context(stream);
@@ -507,7 +528,7 @@ function basic_tag_encoders(encoders) {
 
   return encoders}
 
-const encode = new CBOREncoder().encode;
+const {encode, encode_stream} = CBOREncoder;
 
 const decode_types ={
   __proto__: null
@@ -1338,5 +1359,5 @@ CBORAsyncDecoder.compile({
 
 const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
-export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, hex_to_u8, iter_decode, sym_cbor, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_stream, use_encoder_for, utf8_to_u8 };
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_eoc_sym, iter_decode as cbor_iter_decode, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, sym_cbor, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

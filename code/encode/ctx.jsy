@@ -11,7 +11,7 @@ function bind_ctx_prototype() ::
   return @{}
     __proto__: null,
 
-    // raw_frame, flush
+    // raw_frame,
     // add_w0, add_w1, add_int,
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
@@ -108,18 +108,19 @@ function bind_ctx_prototype() ::
 
 
 export function bind_encoder_context(stream) ::
-  const blockSize = 65536
-  const u8_tip = new Uint8Array(blockSize)
-  const dv_tip = new DataView(u8_tip.buffer)
-
   let idx_frame = 0, idx_next = 0
   if null == stream ::
-    stream = u8concat_stream()
+    stream = u8concat_outstream()
+  else if !stream.flush && stream[Symbol.asyncIterator] ::
+    stream = aiter_outstream(stream)
+
+  const block_size = stream.block_size || 65536
+  const u8_tip = new Uint8Array(block_size)
+  const dv_tip = new DataView(u8_tip.buffer)
 
   const ctx = @{}
     __proto__: ctx_prototype
     raw_frame
-    flush
 
     add_w0(bkind) ::
       next_frame(bkind, 1)
@@ -152,7 +153,16 @@ export function bind_encoder_context(stream) ::
       ctx.tag_encode(opt, v)
     else if opt.tag ::
       ctx.tag_encode(opt.tag, v)
-    return ctx.flush()
+
+    // flush complete cbor_encode op
+    if idx_next === 0 ::
+      return stream.flush(null)
+
+    const blk = u8_tip.slice(0, idx_next)
+    idx_frame = idx_next = 0
+    return stream.flush(blk)
+
+
 
 
   function add_int(mask, v) ::
@@ -194,7 +204,7 @@ export function bind_encoder_context(stream) ::
 
   function next_frame(bkind, frameWidth) ::
     idx_frame = idx_next; idx_next += frameWidth
-    if idx_next > blockSize ::
+    if idx_next > block_size ::
       stream.write @ u8_tip.slice(0, idx_frame)
       idx_frame = 0
       idx_next = frameWidth
@@ -206,7 +216,7 @@ export function bind_encoder_context(stream) ::
   function raw_frame(buf) ::
     const len = buf.byteLength
     idx_frame = idx_next; idx_next += len
-    if idx_next <= blockSize ::
+    if idx_next <= block_size ::
       u8_tip.set(buf, idx_frame)
       return
 
@@ -217,16 +227,8 @@ export function bind_encoder_context(stream) ::
     stream.write @ buf
 
 
-  function flush() ::
-    if idx_next !== 0 ::
-      const blk = u8_tip.slice(0, idx_next)
-      idx_frame = idx_next = 0
-      return stream.flush(blk)
-    else return stream.flush(null)
 
-
-
-export function u8concat_stream() ::
+export function u8concat_outstream() ::
   let blocks = []
   return @{}
     write(blk) :: blocks.push(blk)
@@ -239,4 +241,19 @@ export function u8concat_stream() ::
       const u8 = u8_concat(blocks)
       blocks = []
       return u8
+
+
+export function aiter_outstream(aiter_out) ::
+  let _x_tail
+  return @{}
+    write(blk) ::
+      _x_tail = aiter_out.next(blk)
+
+    async flush(blk) ::
+      let tail = (null !== blk)
+        ? aiter_out.next(blk)
+        : _x_tail
+
+      _x_tail = null
+      return await tail
 

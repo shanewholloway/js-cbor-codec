@@ -12,3 +12,4 @@ import './unit/test_async_decode_vectors.jsy'
 import './unit/test_async_large.jsy'
 
 import './unit/test_aiter_stream.jsy'
+import './unit/test_aiter_encode_stream.jsy'

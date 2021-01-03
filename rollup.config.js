@@ -1,11 +1,16 @@
 import rpi_jsy from 'rollup-plugin-jsy-lite'
+import rpi_dgnotify from 'rollup-plugin-dgnotify'
 import rpi_resolve from '@rollup/plugin-node-resolve'
 import { terser as rpi_terser } from 'rollup-plugin-terser'
 
 import pkg from './package.json'
 const pkg_name = pkg.name.replace('-', '_')
 
-const plugins = [ rpi_jsy(), rpi_resolve({main: true, modules: true}), ]
+const plugins = [
+  rpi_dgnotify(),
+  rpi_jsy(),
+  rpi_resolve({main: true, modules: true}),
+]
 const plugins_min = null && [...plugins, rpi_terser({}) ]
 
 export default [

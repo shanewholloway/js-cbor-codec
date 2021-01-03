@@ -1,7 +1,12 @@
 import rpi_jsy from 'rollup-plugin-jsy-lite'
+import rpi_dgnotify from 'rollup-plugin-dgnotify'
 import rpi_resolve from '@rollup/plugin-node-resolve'
 
-const plugins = [ rpi_jsy(), rpi_resolve() ]
+const plugins = [
+  rpi_dgnotify(),
+  rpi_jsy(),
+  rpi_resolve(),
+]
 
 export default [
   { input: `./unittest.jsy`, plugins,

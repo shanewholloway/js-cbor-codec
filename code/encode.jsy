@@ -1,10 +1,13 @@
 import { CBOREncoder } from './encode/index.jsy'
 export * from './encode/index.jsy'
 
-const encode = new CBOREncoder().encode
+const {encode, encode_stream} = CBOREncoder
 
 export {
   encode,
   encode as cbor_encode,
   encode as default,
+
+  encode_stream,
+  encode_stream as cbor_encode_stream,
 }

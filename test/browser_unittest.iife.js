@@ -218,7 +218,7 @@
     return {
       __proto__: null,
 
-      // raw_frame, flush
+      // raw_frame,
       // add_w0, add_w1, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
@@ -315,18 +315,19 @@
 
 
   function bind_encoder_context(stream) {
-    const blockSize = 65536;
-    const u8_tip = new Uint8Array(blockSize);
-    const dv_tip = new DataView(u8_tip.buffer);
-
     let idx_frame = 0, idx_next = 0;
     if (null == stream) {
-      stream = u8concat_stream();}
+      stream = u8concat_outstream();}
+    else if (!stream.flush && stream[Symbol.asyncIterator]) {
+      stream = aiter_outstream(stream);}
+
+    const block_size = stream.block_size || 65536;
+    const u8_tip = new Uint8Array(block_size);
+    const dv_tip = new DataView(u8_tip.buffer);
 
     const ctx ={
       __proto__: ctx_prototype
     , raw_frame
-    , flush
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -359,7 +360,16 @@
         ctx.tag_encode(opt, v);}
       else if (opt.tag) {
         ctx.tag_encode(opt.tag, v);}
-      return ctx.flush()}
+
+      // flush complete cbor_encode op
+      if (idx_next === 0) {
+        return stream.flush(null)}
+
+      const blk = u8_tip.slice(0, idx_next);
+      idx_frame = idx_next = 0;
+      return stream.flush(blk)}
+
+
 
 
     function add_int(mask, v) {
@@ -401,7 +411,7 @@
 
     function next_frame(bkind, frameWidth) {
       idx_frame = idx_next; idx_next += frameWidth;
-      if (idx_next > blockSize) {
+      if (idx_next > block_size) {
         stream.write(u8_tip.slice(0, idx_frame));
         idx_frame = 0;
         idx_next = frameWidth;}
@@ -413,7 +423,7 @@
     function raw_frame(buf) {
       const len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
-      if (idx_next <= blockSize) {
+      if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
         return}
 
@@ -421,19 +431,11 @@
         stream.write(u8_tip.slice(0, idx_frame)); }
 
       idx_frame = idx_next = 0;
-      stream.write(buf); }
-
-
-    function flush() {
-      if (idx_next !== 0) {
-        const blk = u8_tip.slice(0, idx_next);
-        idx_frame = idx_next = 0;
-        return stream.flush(blk)}
-      else return stream.flush(null)} }
+      stream.write(buf); } }
 
 
 
-  function u8concat_stream() {
+  function u8concat_outstream() {
     let blocks = [];
     return {
       write(blk) {blocks.push(blk);}
@@ -447,9 +449,28 @@
         blocks = [];
         return u8} } }
 
+
+  function aiter_outstream(aiter_out) {
+    let _x_tail;
+    return {
+      write(blk) {
+        _x_tail = aiter_out.next(blk);}
+
+    , async flush(blk) {
+        let tail = (null !== blk)
+          ? aiter_out.next(blk)
+          : _x_tail;
+
+        _x_tail = null;
+        return await tail} } }
+
   class CBOREncoderBasic {
-    static create(stream) {return new this(stream)}
-    static encode(v) {return new this().encode(v)}
+    static get create() {
+      return stream => new this(stream)}
+    static get encode() {
+      return new this().encode}
+    static get encode_stream() {
+      return stream => new this(stream).encode}
 
     constructor(stream) {
       this.encode = bind_encoder_context(stream);
@@ -509,8 +530,6 @@
       end_tag();} );
 
     return encoders}
-
-  const encode = new CBOREncoder().encode;
 
   const _lut_u8b2$2 = Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
@@ -1908,7 +1927,7 @@
     return {
       __proto__: null,
 
-      // raw_frame, flush
+      // raw_frame,
       // add_w0, add_w1, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
@@ -2005,18 +2024,19 @@
 
 
   function bind_encoder_context$1(stream) {
-    const blockSize = 65536;
-    const u8_tip = new Uint8Array(blockSize);
-    const dv_tip = new DataView(u8_tip.buffer);
-
     let idx_frame = 0, idx_next = 0;
     if (null == stream) {
-      stream = u8concat_stream$1();}
+      stream = u8concat_outstream$1();}
+    else if (!stream.flush && stream[Symbol.asyncIterator]) {
+      stream = aiter_outstream$1(stream);}
+
+    const block_size = stream.block_size || 65536;
+    const u8_tip = new Uint8Array(block_size);
+    const dv_tip = new DataView(u8_tip.buffer);
 
     const ctx ={
       __proto__: ctx_prototype$1
     , raw_frame
-    , flush
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -2049,7 +2069,16 @@
         ctx.tag_encode(opt, v);}
       else if (opt.tag) {
         ctx.tag_encode(opt.tag, v);}
-      return ctx.flush()}
+
+      // flush complete cbor_encode op
+      if (idx_next === 0) {
+        return stream.flush(null)}
+
+      const blk = u8_tip.slice(0, idx_next);
+      idx_frame = idx_next = 0;
+      return stream.flush(blk)}
+
+
 
 
     function add_int(mask, v) {
@@ -2091,7 +2120,7 @@
 
     function next_frame(bkind, frameWidth) {
       idx_frame = idx_next; idx_next += frameWidth;
-      if (idx_next > blockSize) {
+      if (idx_next > block_size) {
         stream.write(u8_tip.slice(0, idx_frame));
         idx_frame = 0;
         idx_next = frameWidth;}
@@ -2103,7 +2132,7 @@
     function raw_frame(buf) {
       const len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
-      if (idx_next <= blockSize) {
+      if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
         return}
 
@@ -2111,19 +2140,11 @@
         stream.write(u8_tip.slice(0, idx_frame)); }
 
       idx_frame = idx_next = 0;
-      stream.write(buf); }
-
-
-    function flush() {
-      if (idx_next !== 0) {
-        const blk = u8_tip.slice(0, idx_next);
-        idx_frame = idx_next = 0;
-        return stream.flush(blk)}
-      else return stream.flush(null)} }
+      stream.write(buf); } }
 
 
 
-  function u8concat_stream$1() {
+  function u8concat_outstream$1() {
     let blocks = [];
     return {
       write(blk) {blocks.push(blk);}
@@ -2137,9 +2158,28 @@
         blocks = [];
         return u8} } }
 
+
+  function aiter_outstream$1(aiter_out) {
+    let _x_tail;
+    return {
+      write(blk) {
+        _x_tail = aiter_out.next(blk);}
+
+    , async flush(blk) {
+        let tail = (null !== blk)
+          ? aiter_out.next(blk)
+          : _x_tail;
+
+        _x_tail = null;
+        return await tail} } }
+
   class CBOREncoderBasic$1 {
-    static create(stream) {return new this(stream)}
-    static encode(v) {return new this().encode(v)}
+    static get create() {
+      return stream => new this(stream)}
+    static get encode() {
+      return new this().encode}
+    static get encode_stream() {
+      return stream => new this(stream).encode}
 
     constructor(stream) {
       this.encode = bind_encoder_context$1(stream);
@@ -2239,8 +2279,6 @@
 
         ctx.object_pairs(v);
         return true} } }
-
-  const encode$1 = new CBOREncoderFull().encode;
 
   const { assert: assert$1 } = require('chai');
 
@@ -2722,7 +2760,7 @@
     return {
       __proto__: null,
 
-      // raw_frame, flush
+      // raw_frame,
       // add_w0, add_w1, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
@@ -2819,18 +2857,19 @@
 
 
   function bind_encoder_context$2(stream) {
-    const blockSize = 65536;
-    const u8_tip = new Uint8Array(blockSize);
-    const dv_tip = new DataView(u8_tip.buffer);
-
     let idx_frame = 0, idx_next = 0;
     if (null == stream) {
-      stream = u8concat_stream$2();}
+      stream = u8concat_outstream$2();}
+    else if (!stream.flush && stream[Symbol.asyncIterator]) {
+      stream = aiter_outstream$2(stream);}
+
+    const block_size = stream.block_size || 65536;
+    const u8_tip = new Uint8Array(block_size);
+    const dv_tip = new DataView(u8_tip.buffer);
 
     const ctx ={
       __proto__: ctx_prototype$2
     , raw_frame
-    , flush
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -2863,7 +2902,16 @@
         ctx.tag_encode(opt, v);}
       else if (opt.tag) {
         ctx.tag_encode(opt.tag, v);}
-      return ctx.flush()}
+
+      // flush complete cbor_encode op
+      if (idx_next === 0) {
+        return stream.flush(null)}
+
+      const blk = u8_tip.slice(0, idx_next);
+      idx_frame = idx_next = 0;
+      return stream.flush(blk)}
+
+
 
 
     function add_int(mask, v) {
@@ -2905,7 +2953,7 @@
 
     function next_frame(bkind, frameWidth) {
       idx_frame = idx_next; idx_next += frameWidth;
-      if (idx_next > blockSize) {
+      if (idx_next > block_size) {
         stream.write(u8_tip.slice(0, idx_frame));
         idx_frame = 0;
         idx_next = frameWidth;}
@@ -2917,7 +2965,7 @@
     function raw_frame(buf) {
       const len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
-      if (idx_next <= blockSize) {
+      if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
         return}
 
@@ -2925,19 +2973,11 @@
         stream.write(u8_tip.slice(0, idx_frame)); }
 
       idx_frame = idx_next = 0;
-      stream.write(buf); }
-
-
-    function flush() {
-      if (idx_next !== 0) {
-        const blk = u8_tip.slice(0, idx_next);
-        idx_frame = idx_next = 0;
-        return stream.flush(blk)}
-      else return stream.flush(null)} }
+      stream.write(buf); } }
 
 
 
-  function u8concat_stream$2() {
+  function u8concat_outstream$2() {
     let blocks = [];
     return {
       write(blk) {blocks.push(blk);}
@@ -2951,9 +2991,28 @@
         blocks = [];
         return u8} } }
 
+
+  function aiter_outstream$2(aiter_out) {
+    let _x_tail;
+    return {
+      write(blk) {
+        _x_tail = aiter_out.next(blk);}
+
+    , async flush(blk) {
+        let tail = (null !== blk)
+          ? aiter_out.next(blk)
+          : _x_tail;
+
+        _x_tail = null;
+        return await tail} } }
+
   class CBOREncoderBasic$2 {
-    static create(stream) {return new this(stream)}
-    static encode(v) {return new this().encode(v)}
+    static get create() {
+      return stream => new this(stream)}
+    static get encode() {
+      return new this().encode}
+    static get encode_stream() {
+      return stream => new this(stream).encode}
 
     constructor(stream) {
       this.encode = bind_encoder_context$2(stream);
@@ -3014,7 +3073,7 @@
 
     return encoders}
 
-  const encode$2 = new CBOREncoder$2().encode;
+  const {encode, encode_stream} = CBOREncoder$2;
 
   const decode_types$1 ={
     __proto__: null
@@ -3908,7 +3967,7 @@
     it(`long string`, (() => {
       const s_128k = 'testing '.repeat(128*1024/8);
 
-      const enc_val = encode$2(s_128k);
+      const enc_val = encode(s_128k);
       assert$4.equal(enc_val.byteLength, 0x20000 + 1 + 4);
 
       const dec_val = decode$1(enc_val);
@@ -3917,7 +3976,7 @@
     it(`[null] * 256`, (() => {
       const a_256 = Array(256).fill(null);
 
-      const enc_val = encode$2(a_256);
+      const enc_val = encode(a_256);
       assert$4.equal(enc_val.byteLength, 1 + 2 + a_256.length * (1));
 
       const dec_val = decode$1(enc_val);
@@ -3927,7 +3986,7 @@
 
       const sa_256 = Array(256).fill('slot');
 
-      const enc_val = encode$2(sa_256);
+      const enc_val = encode(sa_256);
       assert$4.equal(enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4));
 
       const dec_val = decode$1(enc_val);
@@ -3939,7 +3998,7 @@
       const sa_256 = Array(256).fill('slot');
       const sa_70_256 = Array(70).fill(sa_256);
 
-      const enc_val = encode$2(sa_70_256);
+      const enc_val = encode(sa_70_256);
       assert$4.equal(enc_val.byteLength,
         1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4)));
 
@@ -4774,7 +4833,7 @@
         it(`long string`, (async () => {
           const s_128k = 'testing '.repeat(128*1024/8);
 
-          const enc_val = encode$2(s_128k);
+          const enc_val = encode(s_128k);
           assert$7.equal(enc_val.byteLength, 0x20000 + 1 + 4);
 
           const dec_val = await decode_stream(
@@ -4784,7 +4843,7 @@
         it(`[null] * 256`, (async () => {
           const a_256 = Array(256).fill(null);
 
-          const enc_val = encode$2(a_256);
+          const enc_val = encode(a_256);
           assert$7.equal(enc_val.byteLength, 1 + 2 + a_256.length * (1));
 
           const dec_val = await decode_stream(
@@ -4795,7 +4854,7 @@
 
           const sa_256 = Array(256).fill('slot');
 
-          const enc_val = encode$2(sa_256);
+          const enc_val = encode(sa_256);
           assert$7.equal(enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4));
 
           const dec_val = await decode_stream(
@@ -4808,7 +4867,7 @@
           const sa_256 = Array(256).fill('slot');
           const sa_70_256 = Array(70).fill(sa_256);
 
-          const enc_val = encode$2(sa_70_256);
+          const enc_val = encode(sa_70_256);
           assert$7.equal(enc_val.byteLength,
             1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4)));
 
@@ -4837,9 +4896,55 @@
 
         let idx = 0;
         for await (let each of obj_stream) {
-          let u8_rt = encode$2(each);
+          let u8_rt = encode(each);
           let hex_rt = u8_to_hex(u8_rt);
           assert$8.equal(hex_rt, known_hex_data[ idx++ ]);} }) ); } }) );
+
+  const { assert: assert$9 } = require('chai');
+
+  describe('Async Iterator Encode Stream', (() => {
+    let known_hex_data = (
+      'a2627473c1fb41d6fbc6ae0000006872656164696e677348db0f494083f9a23e' +
+      'a2627473c1fb41d6fbca320000006872656164696e677348f304b53ff304353f' +
+      'a2627473c1fb41d6fbcdb60000006872656164696e6773488e5d1340d95bde3e' +
+      'a2627473c1fb41d6fbd13a0000006872656164696e6773481872313f3baab83f' +
+      'a2627473c1fb41d6fbd4be0000006872656164696e67734854f82d40b25abc3e' +
+      'a2627473c1fb41d6fbd8420000006872656164696e677348d95bde3e8e5d1340' +
+      'a2627473c1fb41d6fbdbc60000006872656164696e6773483baab83f1872313f');
+
+    let known_u8_data = hex_to_u8(known_hex_data);
+
+    for (let test_stream_mode of ['whole', 'halves', 'frames', 'byte' ]) {
+      it(`streamed by ${test_stream_mode}`, (async () => {
+        let obj_stream = aiter_decode_stream(
+          u8_as_test_stream(known_u8_data, test_stream_mode));
+
+
+        let _aiter_out = _test_out_aiter(known_hex_data);
+        await _aiter_out.next();
+
+
+        let _cbor_encode = encode_stream(_aiter_out);
+        for await (let each of obj_stream) {
+          await _cbor_encode(each);}
+
+
+        let ans = await _aiter_out.return();
+        assert$9.deepEqual({value: true, done: true}, ans);}) ); } }) );
+
+
+  async function * _test_out_aiter(known_hex) {
+    let actual = [];
+
+    try {
+      while (1) {
+        let u8 = (yield);
+        actual.push(u8_to_hex( u8 )); } }
+
+    finally {
+      actual = actual.join('');
+      assert$9.equal(known_hex, actual);
+      return true} }
 
   (require('source-map-support') || {install(){}}).install();
 
