@@ -76,6 +76,21 @@ or in HTML,
 </script>
 ```
 
+### Decoding CBOR
+
+```javascript
+let demo_data_u8 = hex_to_u8(
+  'a27164656d6f5f63626f725f737570706f7274c1fb' +
+  '41d6fbc6534000006c736f6d655f6e756d62657273' +
+  '5820db0f4940f304b53ff304353f8e5d1340187231' +
+  '3f54f82d40d95bde3e3baab83f')
+
+console.log(cbor_decode(demo_data_u8))
+```
+
+See the [API docs](./docs/api.md) for async streaming and custom CBOR tag decodings.
+
+
 ### Encoding CBOR
 
 ```javascript
@@ -92,17 +107,8 @@ console.log('cbor_encoded[u8]:', demo_u8)
 console.log('cbor_encoded[hex]:', u8_to_hex(demo_u8))
 ```
 
-### Decoding CBOR
+See the [API docs](./docs/api.md) for output streaming and custom CBOR tag encodings.
 
-```javascript
-let demo_data_u8 = hex_to_u8(
-  'a27164656d6f5f63626f725f737570706f7274c1fb' +
-  '41d6fbc6534000006c736f6d655f6e756d62657273' +
-  '5820db0f4940f304b53ff304353f8e5d1340187231' +
-  '3f54f82d40d95bde3e3baab83f')
-
-console.log(cbor_decode(demo_data_u8))
-```
 
 ### LevelDB / LevelDown CBOR Codec
 
