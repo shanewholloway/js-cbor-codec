@@ -8,7 +8,22 @@ export const decode_types = @{}
     u8.decode_cbor = () => ctx.decode_cbor()
     return u8
 
-  float16(u8) :: return {'@f2': u8}
+  u32(u8, idx) ::
+    const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
+    return u32 >>> 0 // unsigned int32
+
+  u64(u8, idx) ::
+    const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
+    const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7]
+    const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0)
+    return u64
+
+  float16(u8) ::
+    return {'@f2': u8}
+  float32(u8, idx=u8.byteOffset) ::
+    return new DataView(u8.buffer, idx, 4).getFloat32(0)
+  float64(u8, idx=u8.byteOffset) ::
+    return new DataView(u8.buffer, idx, 8).getFloat64(0)
 
   bytes(u8) :: return u8
   bytes_stream: build_bytes

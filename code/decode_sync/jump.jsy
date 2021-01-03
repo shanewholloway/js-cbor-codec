@@ -17,24 +17,17 @@ export const _cbor_jmp_sync = @{}
   cbor_w2(as_type) ::
     return function w2_as(ctx) ::
       const u8 = ctx.u8, idx = ctx.move(2)
-      const v = (u8[idx] << 8) | u8[idx+1]
-      return as_type @ ctx, v
+      return as_type @ ctx, (u8[idx] << 8) | u8[idx+1]
 
   cbor_w4(as_type) ::
     return function w4_as(ctx) ::
       const u8 = ctx.u8, idx = ctx.move(4)
-
-      const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
-      return as_type @ ctx, (v >>> 0) // unsigned int32
+      return as_type @ ctx, ctx.types.u32(u8, idx)
 
   cbor_w8(as_type) ::
     return function w8_as(ctx) ::
       const u8 = ctx.u8, idx = ctx.move(8)
-
-      const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
-      const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7]
-      const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0)
-      return as_type @ ctx, u64
+      return as_type @ ctx, ctx.types.u64(u8, idx)
 
 
   // basic types
@@ -101,11 +94,11 @@ export const _cbor_jmp_sync = @{}
 
   as_float32(ctx) ::
     const u8 = ctx.u8, idx = ctx.move(4)
-    return new DataView(u8.buffer, idx, 4).getFloat32(0)
+    return ctx.types.float32(u8, idx)
 
   as_float64(ctx) ::
     const u8 = ctx.u8, idx = ctx.move(8)
-    return new DataView(u8.buffer, idx, 8).getFloat64(0)
+    return ctx.types.float64(u8, idx)
 
 
   // tag values

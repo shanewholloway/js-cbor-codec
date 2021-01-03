@@ -517,7 +517,22 @@ const decode_types ={
     u8.decode_cbor = () => ctx.decode_cbor();
     return u8}
 
-, float16(u8) {return {'@f2': u8}}
+, u32(u8, idx) {
+    const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+    return u32 >>> 0 }// unsigned int32
+
+, u64(u8, idx) {
+    const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
+    const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
+    const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
+    return u64}
+
+, float16(u8) {
+    return {'@f2': u8}}
+, float32(u8, idx=u8.byteOffset) {
+    return new DataView(u8.buffer, idx, 4).getFloat32(0)}
+, float64(u8, idx=u8.byteOffset) {
+    return new DataView(u8.buffer, idx, 8).getFloat64(0)}
 
 , bytes(u8) {return u8}
 , bytes_stream: build_bytes
@@ -999,24 +1014,17 @@ const _cbor_jmp_sync ={
 , cbor_w2(as_type) {
     return function w2_as(ctx) {
       const u8 = ctx.u8, idx = ctx.move(2);
-      const v = (u8[idx] << 8) | u8[idx+1];
-      return as_type(ctx, v) } }
+      return as_type(ctx, (u8[idx] << 8) | u8[idx+1]) } }
 
 , cbor_w4(as_type) {
     return function w4_as(ctx) {
       const u8 = ctx.u8, idx = ctx.move(4);
-
-      const v = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
-      return as_type(ctx, (v >>> 0) ) } }// unsigned int32
+      return as_type(ctx, ctx.types.u32(u8, idx)) } }
 
 , cbor_w8(as_type) {
     return function w8_as(ctx) {
       const u8 = ctx.u8, idx = ctx.move(8);
-
-      const v_hi = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
-      const v_lo = (u8[idx+4] << 24) | (u8[idx+5] << 16) | (u8[idx+6] << 8) | u8[idx+7];
-      const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
-      return as_type(ctx, u64) } }
+      return as_type(ctx, ctx.types.u64(u8, idx)) } }
 
 
 , // basic types
@@ -1083,11 +1091,11 @@ const _cbor_jmp_sync ={
 
 , as_float32(ctx) {
     const u8 = ctx.u8, idx = ctx.move(4);
-    return new DataView(u8.buffer, idx, 4).getFloat32(0)}
+    return ctx.types.float32(u8, idx)}
 
 , as_float64(ctx) {
     const u8 = ctx.u8, idx = ctx.move(8);
-    return new DataView(u8.buffer, idx, 8).getFloat64(0)}
+    return ctx.types.float64(u8, idx)}
 
 
 , // tag values
@@ -1243,24 +1251,17 @@ const _cbor_jmp_async ={
 , cbor_w2(as_type) {
     return async function w2_as(ctx) {
       const u8 = await ctx.move_stream(2);
-      const v = (u8[0] << 8) | u8[1];
-      return as_type(ctx, v) } }
+      return as_type(ctx, (u8[0] << 8) | u8[1]) } }
 
 , cbor_w4(as_type) {
     return async function w4_as(ctx) {
       const u8 = await ctx.move_stream(4);
-
-      const v = (u8[0] << 24) | (u8[1] << 16) | (u8[2] << 8) | u8[3];
-      return as_type(ctx, (v >>> 0) ) } }// unsigned int32
+      return as_type(ctx, ctx.types.u32(u8, 0)) } }
 
 , cbor_w8(as_type) {
     return async function w8_as(ctx) {
       const u8 = await ctx.move_stream(8);
-
-      const v_hi = (u8[0] << 24) | (u8[1] << 16) | (u8[2] << 8) | u8[3];
-      const v_lo = (u8[4] << 24) | (u8[5] << 16) | (u8[6] << 8) | u8[7];
-      const u64 = (v_lo >>> 0) + 0x100000000*(v_hi >>> 0);
-      return as_type(ctx, u64) } }
+      return as_type(ctx, ctx.types.u64(u8, 0)) } }
 
 
 , // basic types
@@ -1321,17 +1322,16 @@ const _cbor_jmp_async ={
 , // floating point primitives
 
   async as_float16(ctx) {
-    const u8 = await ctx.move_stream(2);
     return ctx.types.float16(
-      u8.subarray(0, 2)) }
+      await ctx.move_stream(2)) }
 
 , async as_float32(ctx) {
-    const u8 = await ctx.move_stream(4);
-    return new DataView(u8.buffer, u8.byteOffset, 4).getFloat32(0)}
+    return ctx.types.float32(
+      await ctx.move_stream(4)) }
 
 , async as_float64(ctx) {
-    const u8 = await ctx.move_stream(8);
-    return new DataView(u8.buffer, u8.byteOffset, 8).getFloat64(0)}
+    return ctx.types.float64(
+      await ctx.move_stream(8)) }
 
 
 , // tag values
