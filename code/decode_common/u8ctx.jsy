@@ -38,9 +38,9 @@ export class U8DecodeBaseCtx ::
   //   move(count_bytes) ::
 
   // Possible Subclass responsibilities:
-  //   decode(inc_location) ::
-  //   *iter_decode(inc_location) ::
-  //   async decode_stream(inc_location) ::
-  //   async * aiter_decode_stream(inc_location) ::
+  //   decode_cbor() ::
+  //   *iter_decode_cbor() ::
+  //   async decode_cbor() ::
+  //   async * aiter_decode_cbor() ::
 
 

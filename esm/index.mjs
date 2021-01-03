@@ -605,10 +605,10 @@ function build_Set(ctx) {
 
 class CBORDecoderBase {
   // Possible monkeypatch apis responsibilities:
-  //   decode(inc_location) ::
-  //   *iter_decode(inc_location) ::
-  //   async decode_stream(inc_location) ::
-  //   async * aiter_decode_stream(inc_location) ::
+  //   decode() ::
+  //   *iter_decode() ::
+  //   async decode_stream() ::
+  //   async * aiter_decode_stream() ::
 
   static options(options) {
     return (class extends this {})
@@ -890,20 +890,20 @@ class U8DecodeBaseCtx {
   //   move(count_bytes) ::
 
   // Possible Subclass responsibilities:
-  //   decode(inc_location) ::
-  //   *iter_decode(inc_location) ::
-  //   async decode_stream(inc_location) ::
-  }//   async * aiter_decode_stream(inc_location) ::
+  //   decode_cbor() ::
+  //   *iter_decode_cbor() ::
+  //   async decode_cbor() ::
+  }//   async * aiter_decode_cbor() ::
 
 class U8SyncDecodeCtx extends U8DecodeBaseCtx {
   static bind_decode_api(decoder) {
-    decoder.decode = (u8, opt) =>
+    decoder.decode = u8 =>
       this.from_u8(u8, decoder.types)
-        .decode_cbor(opt);
+        .decode_cbor();
 
-    decoder.iter_decode = (u8, opt) =>
+    decoder.iter_decode = u8 =>
       this.from_u8(u8, decoder.types)
-        .iter_decode_cbor(opt);}
+        .iter_decode_cbor();}
 
 
   static get from_u8() {
@@ -914,9 +914,7 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
       const inst ={
         __proto__: inst0
       , idx: 0, u8
-      , _pop_types: inst0._pop_noop
-      , _loc_proto_:{
-          get u8() {return u8.slice(this.idx0, this.idx)} } };
+      , _pop_types: inst0._pop_noop};
 
       if (types && types !== inst0.types) {
         inst.types = types;}
@@ -942,61 +940,30 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
         ? res : doneTypes(res)} }
 
 
-  decode_cbor(inc_location) {
+  decode_cbor() {
     try {
-      if (inc_location) {
-        const idx0 = this.idx || 0;
-        const value = this.next_value();
-        const idx = this.idx;
-        return {__proto__: this._loc_proto_, value, idx0, idx}}
-
       return this.next_value()}
     catch (e) {
-      if (cbor_done_sym === e) {
-        idx = this.idx;
-        if (idx0 == idx) {
-          e = new Error(`End of content`); }
-
-        else {
-          e = new Error(`End of partial frame`);
-          e.cbor_partial ={
-            __proto__: _loc_proto_,
-            idx0, idx, incomplete: true}; } }
-      throw e} }
+      throw cbor_done_sym !== e ? e
+        : new Error(`End of content`) } }
 
 
-  *iter_decode_cbor(inc_location) {
-    let {_loc_proto_} = this;
-    let idx0, idx = this.idx || 0;
-
+  *iter_decode_cbor() {
     try {
-      while (true) {
-        idx0 = idx;
-        const value = this.next_value();
-        idx = this.idx;
-
-        yield inc_location
-          ? { __proto__: _loc_proto_, idx0, idx, value }
-          : value;} }
-
+      while (1) {
+        yield this.next_value();} }
     catch (e) {
-      if (cbor_done_sym === e) {
-        idx = this.idx;
-        if (idx0 == idx) {return}
+      if (cbor_done_sym !== e) {
+        throw e} } }
 
-        e = new Error(`End of partial frame`);
-        e.cbor_partial ={
-          __proto__: _loc_proto_,
-          idx0, idx, incomplete: true}; }
-      throw e} }
 
   move(count_bytes) {
-    const idx0 = this.idx;
-    const idx_next = idx0 + count_bytes;
-    if (idx_next >= this.byteLength) {
+    const {idx, byteLength} = this;
+    const idx_next = idx + count_bytes;
+    if (idx_next >= byteLength) {
       throw cbor_eoc_sym}
     this.idx = idx_next;
-    return idx0} }
+    return idx} }
 
 const _cbor_jmp_sync ={
   __proto__: _cbor_jmp_base
@@ -1163,13 +1130,13 @@ async function * _aiter_move_stream(u8_stream) {
 
 class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
   static bind_decode_api(decoder) {
-    decoder.decode_stream = (u8_stream, opt) =>
+    decoder.decode_stream = (u8_stream) =>
       this.from_u8_stream(u8_stream, decoder.types)
-        .decode_cbor(opt);
+        .decode_cbor();
 
-    decoder.aiter_decode_stream = (u8_stream, opt) =>
+    decoder.aiter_decode_stream = (u8_stream) =>
       this.from_u8_stream(u8_stream, decoder.types)
-        .aiter_decode_cbor(opt);}
+        .aiter_decode_cbor();}
 
 
   static from_u8(u8, types) {
@@ -1199,10 +1166,7 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
     return async function next_value() {
       const doneTypes = this._pop_types();
 
-      const [type_b] = await this.move_stream(1);
-      if (undefined === type_b) {
-        throw cbor_done_sym}
-
+      const [type_b] = await this.move_stream(1, cbor_done_sym);
       const decode = jmp[type_b] || unknown;
       const res = await decode(this, type_b);
 
@@ -1214,10 +1178,8 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
     try {
       return await this.next_value()}
     catch (e) {
-      if (cbor_done_sym !== e) {
-        throw e}
-
-      throw new Error(`End of content`) } }
+      throw cbor_done_sym !== e ? e
+        : new Error(`End of content`) } }
 
 
   async *aiter_decode_cbor() {
@@ -1229,10 +1191,9 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
         throw e} } }
 
 
-  async move_stream(count_bytes) {
+  async move_stream(count_bytes, eoc_sym=cbor_eoc_sym) {
     let tip = await this.u8_aiter.next(count_bytes);
-    if (tip.done) {
-      throw cbor_eoc_sym}
+    if (tip.done) {throw eoc_sym}
     return tip.value} }
 
 const _cbor_jmp_async ={

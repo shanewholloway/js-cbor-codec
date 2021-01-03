@@ -4,13 +4,13 @@ import { U8DecodeBaseCtx } from '../decode_common/u8ctx.jsy'
 
 export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
   static bind_decode_api(decoder) ::
-    decoder.decode = (u8, opt) =>
+    decoder.decode = u8 =>
       this.from_u8(u8, decoder.types)
-        .decode_cbor(opt)
+        .decode_cbor()
 
-    decoder.iter_decode = (u8, opt) =>
+    decoder.iter_decode = u8 =>
       this.from_u8(u8, decoder.types)
-        .iter_decode_cbor(opt)
+        .iter_decode_cbor()
 
 
   static get from_u8() ::
@@ -22,8 +22,6 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
         __proto__: inst0
         idx: 0, u8
         _pop_types: inst0._pop_noop
-        _loc_proto_: @{}
-          get u8() :: return u8.slice(this.idx0, this.idx)
 
       if types && types !== inst0.types ::
         inst.types = types
@@ -49,59 +47,28 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
         ? res : doneTypes(res)
 
 
-  decode_cbor(inc_location) ::
+  decode_cbor() ::
     try ::
-      if inc_location ::
-        const idx0 = this.idx || 0
-        const value = this.next_value()
-        const idx = this.idx
-        return {__proto__: this._loc_proto_, value, idx0, idx}
-
       return this.next_value()
     catch e ::
-      if cbor_done_sym === e ::
-        idx = this.idx
-        if idx0 == idx ::
-          e = new Error @ `End of content`
+      throw cbor_done_sym !== e ? e
+        : new Error @ `End of content`
 
-        else ::
-          e = new Error @ `End of partial frame`
-          e.cbor_partial = @{}
-            __proto__: _loc_proto_,
-            idx0, idx, incomplete: true
-      throw e
-      
 
-  *iter_decode_cbor(inc_location) ::
-    let {_loc_proto_} = this
-    let idx0, idx = this.idx || 0
-
+  *iter_decode_cbor() ::
     try ::
-      while true ::
-        idx0 = idx
-        const value = this.next_value()
-        idx = this.idx
-
-        yield inc_location
-          ? { __proto__: _loc_proto_, idx0, idx, value }
-          : value
-
+      while 1 ::
+        yield this.next_value()
     catch e ::
-      if cbor_done_sym === e ::
-        idx = this.idx
-        if idx0 == idx :: return
+      if cbor_done_sym !== e ::
+        throw e
 
-        e = new Error @ `End of partial frame`
-        e.cbor_partial = @{}
-          __proto__: _loc_proto_,
-          idx0, idx, incomplete: true
-      throw e
 
   move(count_bytes) ::
-    const idx0 = this.idx
-    const idx_next = idx0 + count_bytes
-    if idx_next >= this.byteLength ::
+    const {idx, byteLength} = this
+    const idx_next = idx + count_bytes
+    if idx_next >= byteLength ::
       throw cbor_eoc_sym
     this.idx = idx_next
-    return idx0
+    return idx
 

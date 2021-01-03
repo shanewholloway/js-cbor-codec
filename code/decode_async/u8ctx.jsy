@@ -24,13 +24,13 @@ async function * _aiter_move_stream(u8_stream) ::
 
 export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
   static bind_decode_api(decoder) ::
-    decoder.decode_stream = (u8_stream, opt) =>
+    decoder.decode_stream = (u8_stream) =>
       this.from_u8_stream(u8_stream, decoder.types)
-        .decode_cbor(opt)
+        .decode_cbor()
 
-    decoder.aiter_decode_stream = (u8_stream, opt) =>
+    decoder.aiter_decode_stream = (u8_stream) =>
       this.from_u8_stream(u8_stream, decoder.types)
-        .aiter_decode_cbor(opt)
+        .aiter_decode_cbor()
 
 
   static from_u8(u8, types) ::
@@ -60,10 +60,7 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
     return async function next_value() ::
       const doneTypes = this._pop_types()
 
-      const [type_b] = await this.move_stream(1)
-      if undefined === type_b ::
-        throw cbor_done_sym
-
+      const [type_b] = await this.move_stream(1, cbor_done_sym)
       const decode = jmp[type_b] || unknown
       const res = await decode(this, type_b)
 
@@ -75,10 +72,8 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
     try ::
       return await this.next_value()
     catch e ::
-      if cbor_done_sym !== e ::
-        throw e
-
-      throw new Error @ `End of content`
+      throw cbor_done_sym !== e ? e
+        : new Error @ `End of content`
 
 
   async *aiter_decode_cbor() ::
@@ -90,9 +85,8 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
         throw e
 
 
-  async move_stream(count_bytes) ::
+  async move_stream(count_bytes, eoc_sym=cbor_eoc_sym) ::
     let tip = await this.u8_aiter.next(count_bytes)
-    if tip.done ::
-      throw cbor_eoc_sym
+    if tip.done :: throw eoc_sym
     return tip.value
 

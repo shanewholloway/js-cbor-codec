@@ -2,10 +2,10 @@ import { decode_types } from './types.jsy'
 
 export class CBORDecoderBase ::
   // Possible monkeypatch apis responsibilities:
-  //   decode(inc_location) ::
-  //   *iter_decode(inc_location) ::
-  //   async decode_stream(inc_location) ::
-  //   async * aiter_decode_stream(inc_location) ::
+  //   decode() ::
+  //   *iter_decode() ::
+  //   async decode_stream() ::
+  //   async * aiter_decode_stream() ::
 
   static options(options) ::
     return (class extends this {})
