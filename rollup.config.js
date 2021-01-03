@@ -11,7 +11,7 @@ const plugins = [
   rpi_jsy(),
   rpi_resolve({main: true, modules: true}),
 ]
-const plugins_min = null && [...plugins, rpi_terser({}) ]
+const plugins_min = [...plugins, rpi_terser({}) ]
 
 export default [
 
