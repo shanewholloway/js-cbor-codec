@@ -21,7 +21,7 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
       const inst = @{}
         __proto__: inst0
         idx: 0, u8
-        _pop_types: inst0._pop_noop
+        _apply_overlay: inst0._overlay_noop
 
       if types && types !== inst0.types ::
         inst.types = types
@@ -33,7 +33,7 @@ export class U8SyncDecodeCtx extends U8DecodeBaseCtx ::
       unknown = this._error_unknown
 
     return function next_value() ::
-      const doneTypes = this._pop_types()
+      const doneTypes = this._apply_overlay()
 
       const type_b = this.u8[ this.idx ++ ]
       if undefined === type_b ::

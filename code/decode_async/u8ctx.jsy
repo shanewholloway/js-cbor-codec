@@ -45,7 +45,7 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
 
       const inst = @{}
         __proto__: inst0
-        _pop_types: inst0._pop_noop
+        _apply_overlay: inst0._overlay_noop
         u8_aiter
 
       if types && types !== inst0.types ::
@@ -58,7 +58,7 @@ export class U8AsyncDecodeCtx extends U8DecodeBaseCtx ::
       unknown = this._error_unknown
 
     return async function next_value() ::
-      const doneTypes = this._pop_types()
+      const doneTypes = this._apply_overlay()
 
       const [type_b] = await this.move_stream(1, cbor_done_sym)
       const decode = jmp[type_b] || unknown

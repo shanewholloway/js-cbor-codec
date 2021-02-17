@@ -54,10 +54,10 @@ export function basic_tags(tags_lut) ::
   // EXTENSIONS
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 258, ctx => { ctx.push_types(decode_Set) }
+  tags_lut.set @ 258, ctx => { ctx.use_overlay(decode_Set) }
 
-  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 259, ctx => { ctx.push_types(decode_Map) }
+  // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+  tags_lut.set @ 259, ctx => { ctx.use_overlay(decode_Map) }
 
   return tags_lut
 

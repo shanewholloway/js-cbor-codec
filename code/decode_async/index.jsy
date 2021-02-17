@@ -1,6 +1,4 @@
-import { CBORDecoderBase } from '../decode_common/basic.jsy'
-import { basic_tags } from '../decode_common/basic_tags.jsy'
-import { decode_types } from '../decode_common/types.jsy'
+import { CBORDecoderBase, basic_tags, decode_types } from '../decode_common/index.jsy'
 
 import { U8AsyncDecodeCtx } from './u8ctx.jsy'
 import { _cbor_jmp_async } from './jump.jsy'

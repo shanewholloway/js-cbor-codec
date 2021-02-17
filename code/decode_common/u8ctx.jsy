@@ -15,22 +15,22 @@ export class U8DecodeBaseCtx ::
       .from_u8(u8, this.types)
 
 
-  push_types(overlay_types) ::
-    let {types, _pop_types, _pop_noop} = this
+  use_overlay(overlay_types) ::
+    let {types, _apply_overlay, _overlay_noop} = this
 
-    if _pop_noop === _pop_types ::
-      _pop_types = () => ::
+    if _overlay_noop === _apply_overlay ::
+      _apply_overlay = () => ::
         this.types = types
 
-    this._pop_types = @=> ::
-      this._pop_types = _pop_types
+    this._apply_overlay = @=> ::
+      this._apply_overlay = _apply_overlay
       this.types = overlay_types
     return types
 
   _error_unknown(ctx, type_b) ::
     throw new Error @ `No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`
 
-  _pop_noop() {}
+  _overlay_noop() {}
 
   // Subclass responsibilities:
   //   static bind_decode_api(decoder)
