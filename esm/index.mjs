@@ -1,4 +1,4 @@
-const _lut_u8b2 = Array.from(Array(256),
+Array.from(Array(256),
   (_, v) => v.toString(2).padStart(8, '0'));
 
 const _lut_u8hex = Array.from(Array(256),
@@ -711,10 +711,10 @@ function basic_tags(tags_lut) {
   // EXTENSIONS
 
   // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set(258, ctx => { ctx.push_types(decode_Set); });
+  tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set); });
 
-  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set(259, ctx => { ctx.push_types(decode_Map); });
+  // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+  tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); });
 
   return tags_lut}
 
@@ -767,7 +767,7 @@ const _cbor_jmp_base ={
 
 
 , bind_basics_dispatch(tags_lut) {
-    const as_tag = this.bind_tag_dispatch(tags_lut || new Map());
+    this.bind_tag_dispatch(tags_lut || new Map());
 
     const tiny_pos_int = this.cbor_tiny(this.as_pos_int);
     const tiny_neg_int = this.cbor_tiny(this.as_neg_int);
@@ -888,22 +888,22 @@ class U8DecodeBaseCtx {
       .from_u8(u8, this.types)}
 
 
-  push_types(overlay_types) {
-    let {types, _pop_types, _pop_noop} = this;
+  use_overlay(overlay_types) {
+    let {types, _apply_overlay, _overlay_noop} = this;
 
-    if (_pop_noop === _pop_types) {
-      _pop_types = () => {
+    if (_overlay_noop === _apply_overlay) {
+      _apply_overlay = () => {
         this.types = types;}; }
 
-    this._pop_types = (() => {
-      this._pop_types = _pop_types;
+    this._apply_overlay = (() => {
+      this._apply_overlay = _apply_overlay;
       this.types = overlay_types;} );
     return types}
 
   _error_unknown(ctx, type_b) {
     throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
-  _pop_noop() {}
+  _overlay_noop() {}
 
   // Subclass responsibilities:
   //   static bind_decode_api(decoder)
@@ -935,7 +935,7 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
       const inst ={
         __proto__: inst0
       , idx: 0, u8
-      , _pop_types: inst0._pop_noop};
+      , _apply_overlay: inst0._overlay_noop};
 
       if (types && types !== inst0.types) {
         inst.types = types;}
@@ -947,7 +947,7 @@ class U8SyncDecodeCtx extends U8DecodeBaseCtx {
       unknown = this._error_unknown;}
 
     return function next_value() {
-      const doneTypes = this._pop_types();
+      const doneTypes = this._apply_overlay();
 
       const type_b = this.u8[ this.idx ++ ];
       if (undefined === type_b) {
@@ -1172,7 +1172,7 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
 
       const inst ={
         __proto__: inst0
-      , _pop_types: inst0._pop_noop
+      , _apply_overlay: inst0._overlay_noop
       , u8_aiter};
 
       if (types && types !== inst0.types) {
@@ -1185,7 +1185,7 @@ class U8AsyncDecodeCtx extends U8DecodeBaseCtx {
       unknown = this._error_unknown;}
 
     return async function next_value() {
-      const doneTypes = this._pop_types();
+      const doneTypes = this._apply_overlay();
 
       const [type_b] = await this.move_stream(1, cbor_done_sym);
       const decode = jmp[type_b] || unknown;

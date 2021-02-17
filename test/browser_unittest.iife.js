@@ -38,10 +38,10 @@
       u8[i++] = (_lut_hexu8[hex[j]] << 4) | _lut_hexu8[hex[j+1]];}
     return u8}
 
-  const _lut_u8b2$1 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$1 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function utf8_to_u8(utf8) {
@@ -531,10 +531,10 @@
 
     return encoders}
 
-  const _lut_u8b2$2 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$2 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8(u8) {
@@ -748,10 +748,10 @@
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.push_types(decode_Set); });
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set); });
 
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => { ctx.push_types(decode_Map); });
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); });
 
     return tags_lut}
 
@@ -804,7 +804,7 @@
 
 
   , bind_basics_dispatch(tags_lut) {
-      const as_tag = this.bind_tag_dispatch(tags_lut || new Map());
+      this.bind_tag_dispatch(tags_lut || new Map());
 
       const tiny_pos_int = this.cbor_tiny(this.as_pos_int);
       const tiny_neg_int = this.cbor_tiny(this.as_neg_int);
@@ -925,22 +925,22 @@
         .from_u8(u8, this.types)}
 
 
-    push_types(overlay_types) {
-      let {types, _pop_types, _pop_noop} = this;
+    use_overlay(overlay_types) {
+      let {types, _apply_overlay, _overlay_noop} = this;
 
-      if (_pop_noop === _pop_types) {
-        _pop_types = () => {
+      if (_overlay_noop === _apply_overlay) {
+        _apply_overlay = () => {
           this.types = types;}; }
 
-      this._pop_types = (() => {
-        this._pop_types = _pop_types;
+      this._apply_overlay = (() => {
+        this._apply_overlay = _apply_overlay;
         this.types = overlay_types;} );
       return types}
 
     _error_unknown(ctx, type_b) {
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
-    _pop_noop() {}
+    _overlay_noop() {}
 
     // Subclass responsibilities:
     //   static bind_decode_api(decoder)
@@ -972,7 +972,7 @@
         const inst ={
           __proto__: inst0
         , idx: 0, u8
-        , _pop_types: inst0._pop_noop};
+        , _apply_overlay: inst0._overlay_noop};
 
         if (types && types !== inst0.types) {
           inst.types = types;}
@@ -984,7 +984,7 @@
         unknown = this._error_unknown;}
 
       return function next_value() {
-        const doneTypes = this._pop_types();
+        const doneTypes = this._apply_overlay();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -1747,10 +1747,10 @@
         "Fun": true
       , "Amt": -2} } ];
 
-  const _lut_u8b2$3 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$3 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function utf8_to_u8$1(utf8) {
@@ -2574,10 +2574,10 @@
   function decode_float16(u8) {
     return convertToNumber((u8[0]<<8) | u8[1]) }
 
-  const _lut_u8b2$4 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$4 = Array.from(Array(256),
+  const _lut_u8hex$1 = Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8$1(u8) {
@@ -3256,10 +3256,10 @@
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.push_types(decode_Set$1); });
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$1); });
 
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => { ctx.push_types(decode_Map$1); });
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$1); });
 
     return tags_lut}
 
@@ -3312,7 +3312,7 @@
 
 
   , bind_basics_dispatch(tags_lut) {
-      const as_tag = this.bind_tag_dispatch(tags_lut || new Map());
+      this.bind_tag_dispatch(tags_lut || new Map());
 
       const tiny_pos_int = this.cbor_tiny(this.as_pos_int);
       const tiny_neg_int = this.cbor_tiny(this.as_neg_int);
@@ -3433,22 +3433,22 @@
         .from_u8(u8, this.types)}
 
 
-    push_types(overlay_types) {
-      let {types, _pop_types, _pop_noop} = this;
+    use_overlay(overlay_types) {
+      let {types, _apply_overlay, _overlay_noop} = this;
 
-      if (_pop_noop === _pop_types) {
-        _pop_types = () => {
+      if (_overlay_noop === _apply_overlay) {
+        _apply_overlay = () => {
           this.types = types;}; }
 
-      this._pop_types = (() => {
-        this._pop_types = _pop_types;
+      this._apply_overlay = (() => {
+        this._apply_overlay = _apply_overlay;
         this.types = overlay_types;} );
       return types}
 
     _error_unknown(ctx, type_b) {
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
-    _pop_noop() {}
+    _overlay_noop() {}
 
     // Subclass responsibilities:
     //   static bind_decode_api(decoder)
@@ -3480,7 +3480,7 @@
         const inst ={
           __proto__: inst0
         , idx: 0, u8
-        , _pop_types: inst0._pop_noop};
+        , _apply_overlay: inst0._overlay_noop};
 
         if (types && types !== inst0.types) {
           inst.types = types;}
@@ -3492,7 +3492,7 @@
         unknown = this._error_unknown;}
 
       return function next_value() {
-        const doneTypes = this._pop_types();
+        const doneTypes = this._apply_overlay();
 
         const type_b = this.u8[ this.idx ++ ];
         if (undefined === type_b) {
@@ -3717,7 +3717,7 @@
 
         const inst ={
           __proto__: inst0
-        , _pop_types: inst0._pop_noop
+        , _apply_overlay: inst0._overlay_noop
         , u8_aiter};
 
         if (types && types !== inst0.types) {
@@ -3730,7 +3730,7 @@
         unknown = this._error_unknown;}
 
       return async function next_value() {
-        const doneTypes = this._pop_types();
+        const doneTypes = this._apply_overlay();
 
         const [type_b] = await this.move_stream(1, cbor_done_sym$1);
         const decode = jmp[type_b] || unknown;
@@ -4005,10 +4005,10 @@
       const dec_val = decode$1(enc_val);
       assert$4.deepEqual(dec_val, sa_70_256); } ) ); } ) );
 
-  const _lut_u8b2$5 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$5 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8$2(u8) {
@@ -4225,10 +4225,10 @@
     // EXTENSIONS
 
     // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.push_types(decode_Set$2); });
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$2); });
 
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(259, ctx => { ctx.push_types(decode_Map$2); });
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$2); });
 
     return tags_lut}
 
@@ -4281,7 +4281,7 @@
 
 
   , bind_basics_dispatch(tags_lut) {
-      const as_tag = this.bind_tag_dispatch(tags_lut || new Map());
+      this.bind_tag_dispatch(tags_lut || new Map());
 
       const tiny_pos_int = this.cbor_tiny(this.as_pos_int);
       const tiny_neg_int = this.cbor_tiny(this.as_neg_int);
@@ -4402,22 +4402,22 @@
         .from_u8(u8, this.types)}
 
 
-    push_types(overlay_types) {
-      let {types, _pop_types, _pop_noop} = this;
+    use_overlay(overlay_types) {
+      let {types, _apply_overlay, _overlay_noop} = this;
 
-      if (_pop_noop === _pop_types) {
-        _pop_types = () => {
+      if (_overlay_noop === _apply_overlay) {
+        _apply_overlay = () => {
           this.types = types;}; }
 
-      this._pop_types = (() => {
-        this._pop_types = _pop_types;
+      this._apply_overlay = (() => {
+        this._apply_overlay = _apply_overlay;
         this.types = overlay_types;} );
       return types}
 
     _error_unknown(ctx, type_b) {
       throw new Error(`No CBOR decorder regeistered for ${type_b} (0x${('0'+type_b.toString(16)).slice(-2)})`) }
 
-    _pop_noop() {}
+    _overlay_noop() {}
 
     // Subclass responsibilities:
     //   static bind_decode_api(decoder)
@@ -4473,7 +4473,7 @@
 
         const inst ={
           __proto__: inst0
-        , _pop_types: inst0._pop_noop
+        , _apply_overlay: inst0._overlay_noop
         , u8_aiter};
 
         if (types && types !== inst0.types) {
@@ -4486,7 +4486,7 @@
         unknown = this._error_unknown;}
 
       return async function next_value() {
-        const doneTypes = this._pop_types();
+        const doneTypes = this._apply_overlay();
 
         const [type_b] = await this.move_stream(1, cbor_done_sym$2);
         const decode = jmp[type_b] || unknown;

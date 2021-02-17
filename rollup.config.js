@@ -21,6 +21,7 @@ export default [
   ... add_jsy('encode_full'),
   ... add_jsy('decode'),
   ... add_jsy('decode_async'),
+  ... add_jsy('decode_full'),
   ... add_jsy('float16'),
 
   // publish leveldb as package that reuses other modules
