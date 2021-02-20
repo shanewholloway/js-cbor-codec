@@ -3,13 +3,14 @@ import { bind_encode_dispatch } from './jump.jsy'
 
 const W0=0, W1=24, W2=25, W4=26, W8=27 
 
-export const sym_cbor = Symbol('cbor')
-
 const ctx_prototype = bind_ctx_prototype()
 
 function bind_ctx_prototype() ::
   return @{}
     __proto__: null,
+
+    // encode(v) -- installed in bind_encode_dispatch (./jump.jsy)
+    // encode_object(v) -- installed in bind_encode_dispatch (./jump.jsy)
 
     // raw_frame,
     // add_w0, add_w1, add_int,
@@ -70,9 +71,6 @@ function bind_ctx_prototype() ::
 
 
     object_pairs(v) ::
-      if undefined !== v[sym_cbor] ::
-        return v[sym_cbor](ctx, v)
-
       const {add_int, encode} = this
       const ns = Object.entries(v)
       const count = ns.length

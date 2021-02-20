@@ -1,5 +1,4 @@
 import { CBOREncoder } from './index.jsy'
-import { sym_cbor } from './ctx.jsy'
 
 export * from './index.jsy'
 
@@ -12,11 +11,6 @@ export class CBOREncoderFull extends CBOREncoder ::
     return enc_obj$full
 
     function enc_obj$full(v, ctx) ::
-      // Lookup CBOR extension point via [sym_cbor]
-      if undefined !== v[sym_cbor] ::
-        v[sym_cbor](ctx, v)
-        return true
-
       // Lookup .toJSON extension point
       if 'function' === typeof v.toJSON ::
         ctx.encode @ v.toJSON()

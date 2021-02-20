@@ -1,6 +1,7 @@
 import CBOREncoderBasic from './basic.jsy'
 import { use_encoder_for } from './jump.jsy'
 
+export * from './sym_cbor.jsy'
 export * from './jump.jsy'
 export * from './ctx.jsy'
 
