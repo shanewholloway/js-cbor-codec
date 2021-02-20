@@ -1,4 +1,5 @@
 import { CBOREncoder } from './encode/index.jsy'
+export * from './sym_cbor.jsy'
 export * from './encode/index.jsy'
 
 const {encode, encode_stream} = CBOREncoder

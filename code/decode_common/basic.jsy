@@ -1,5 +1,3 @@
-import { decode_types } from './types.jsy'
-
 export class CBORDecoderBase ::
   // Possible monkeypatch apis responsibilities:
   //   decode() ::
@@ -32,4 +30,3 @@ export class CBORDecoderBase ::
     this._U8Ctx_ = this._bind_u8ctx(
       this.types, this.jmp, options.unknown)
     return this
-

@@ -22,6 +22,11 @@ function bind_ctx_prototype() ::
       this.encode(value)
       return end_tag()
 
+    tag_encode_object(tag, value) ::
+      const end_tag = this.tag(tag)
+      this.encode_object(value)
+      return end_tag()
+
     tag(tag, with_tag) ::
       if true === tag :: tag = 0xd9f7
       this.add_int(0xc0, tag)

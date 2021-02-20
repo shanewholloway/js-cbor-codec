@@ -1,4 +1,5 @@
-import { cbor_break_sym, _cbor_jmp_base } from '../decode_common/jump.jsy' 
+import { cbor_break_sym, cbor_tagged_proto } from '../sym_cbor.jsy'
+import { _cbor_jmp_base } from '../decode_common/jump.jsy'
 export * from '../decode_common/jump.jsy'
 
 export const _cbor_jmp_async = @{}
@@ -113,5 +114,7 @@ export const _cbor_jmp_async = @{}
         const body = await ctx.next_value()
         return undefined === res ? body : res(body)
 
-      return { tag, body: await ctx.next_value() }
+      return @{}
+        __proto__: cbor_tagged_proto,
+        tag, body: await ctx.next_value()
 

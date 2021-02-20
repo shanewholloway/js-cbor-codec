@@ -1,0 +1,30 @@
+export const cbor_decode_sym = Symbol('CBOR-decode')
+export const cbor_encode_sym = Symbol('CBOR-encode')
+export { cbor_encode_sym as cbor_sym }
+
+export const cbor_break_sym = Symbol('CBOR-break')
+export const cbor_done_sym = Symbol('CBOR-done')
+export const cbor_eoc_sym = Symbol('CBOR-EOC')
+
+export const cbor_tagged_proto = @{}
+  [Symbol.toStringTag]: 'cbor_tag',
+
+  [cbor_encode_sym](enc_ctx, v) ::
+    enc_ctx.tag_encode(v.tag, v.body)
+
+
+export const cbor_accum = {} // TODO
+/*
+  with_result: cbor_accum_result
+  ns(ns) ::
+    let fn = ns.accum.bind(ns)
+    fn.done = () => ns.done ? ns.done() : ns.res
+    return fn
+
+export function cbor_accum_result(res, fn, done) ::
+  fn = fn.bind(res)
+  fn.res = res
+  if undefined !== done ::
+    fn.done = done
+  return fn
+*/

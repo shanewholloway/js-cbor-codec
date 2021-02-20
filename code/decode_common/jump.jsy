@@ -1,7 +1,5 @@
-// special token
-export const cbor_break_sym = Symbol('CBOR-break')
-export const cbor_done_sym = Symbol('CBOR-done')
-export const cbor_eoc_sym = Symbol('CBOR-EOC')
+import { cbor_break_sym, cbor_decode_sym } from '../sym_cbor.jsy'
+import { cbor_accum } from '../sym_cbor.jsy'
 
 export const _cbor_jmp_base = @{}
   bind_jmp(options, jmp) ::
@@ -32,7 +30,8 @@ export const _cbor_jmp_base = @{}
 
   bind_jmp_tag(options, jmp) ::
     if options.tags ::
-      const as_tag = this.bind_tag_dispatch(options.tags)
+      const as_tag = this.bind_tag_dispatch(
+        this.build_tags_lut(options.tags))
       const tiny_tag = this.cbor_tiny(as_tag)
 
       for let i=0xc0; i<= 0xd7; i++ ::
@@ -47,7 +46,7 @@ export const _cbor_jmp_base = @{}
 
 
   bind_basics_dispatch(tags_lut) ::
-    const as_tag = this.bind_tag_dispatch(tags_lut || new Map())
+    const as_tag = this.bind_tag_dispatch(tags_lut)
 
     const tiny_pos_int = this.cbor_tiny(this.as_pos_int)
     const tiny_neg_int = this.cbor_tiny(this.as_neg_int)
@@ -125,6 +124,28 @@ export const _cbor_jmp_base = @{}
 
     return (ctx, key) => simple_lut.get(key)
 
+
+  build_tags_lut(tags) ::
+    let lut = new Map()
+
+    let q = [tags]
+    while 0 !== q.length ::
+      let tip = q.pop()
+
+      if Array.isArray(tip) ::
+        q.push(... tip)
+
+      else if tip[cbor_decode_sym] ::
+        tip[cbor_decode_sym](lut, cbor_accum)
+
+      else if 'function' === typeof tip ::
+        tip(lut, cbor_accum)
+
+      else ::
+        for let [k,v] of tip.entries() ::
+          lut.set(k,v)
+
+    return lut
 
 
   // Subclass responsibility: cbor size/value interpreters

@@ -1,4 +1,5 @@
 import { bind_encoder_context } from './ctx.jsy'
+import { use_encoder_for } from './jump.jsy'
 
 export class CBOREncoderBasic ::
   static get create() ::
@@ -29,6 +30,13 @@ export class CBOREncoderBasic ::
       this._simple_map = new Map(this._simple_map)
       this.rebind()
     return this._simple_map
+
+  with_encoders(fn_block, skip_rebind) ::
+    let enc_map = this._encoder_map = new Map(this._encoder_map)
+    let add_encoder = use_encoder_for.bind(null, enc_map)
+    fn_block(add_encoder, this)
+    return skip_rebind ? this
+      : this.rebind()
 
 
 CBOREncoderBasic.prototype._encoder_map = new Map()

@@ -1,5 +1,5 @@
 import { u8_as_stream, as_u8_buffer, u8_concat } from '../u8_utils.jsy'
-import { cbor_done_sym, cbor_eoc_sym } from '../decode_common/u8ctx.jsy'
+import { cbor_eoc_sym, cbor_done_sym } from '../sym_cbor.jsy'
 import { U8DecodeBaseCtx } from '../decode_common/u8ctx.jsy'
 
 async function * _aiter_move_stream(u8_stream) ::

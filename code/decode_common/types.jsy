@@ -1,4 +1,5 @@
 import { u8_to_utf8, u8_concat } from '../u8_utils.jsy'
+import { cbor_accum } from '../sym_cbor.jsy'
 
 export const decode_types = @{}
   __proto__: null
@@ -42,37 +43,29 @@ export const decode_types = @{}
 
 
 
-function _with_result(res, fn, done) ::
-  fn = fn.bind(res)
-  fn.res = res
-  if undefined !== done ::
-    fn.done = done
-  return fn
-
 function _obj_push(i, v) :: this.push(v)
 function _bytes_done() ::
   const res = this.res; this.res = null
   return u8_concat(res)
 
-function build_bytes(ctx) ::
-  return _with_result @ [], _obj_push, _bytes_done
+function build_bytes() ::
+  return cbor_accum_result @ [], _obj_push, _bytes_done
 
 function _utf8_done() ::
   const res = this.res; this.res = null
   return res.join('')
-function build_utf8(ctx) ::
-  return _with_result @ [], _obj_push, _utf8_done
+function build_utf8() ::
+  return cbor_accum_result @ [], _obj_push, _utf8_done
 
 
 
 function _obj_set(k, v) :: this[k] = v
 
-function build_Obj(ctx) ::
-  return _with_result @ {}, _obj_set
+function build_Obj() ::
+  return cbor_accum_result @ {}, _obj_set
 
-function build_Array(ctx, len) ::
-  const res = len ? new Array(len) : []
-  return _with_result @ res, _obj_set
+function build_Array() ::
+  return cbor_accum_result @ [], _obj_set
 
 
 export const decode_Map = @{}
@@ -81,8 +74,8 @@ export const decode_Map = @{}
   map_stream: build_Map
 
 function _map_set(k, v) :: this.set(k, v)
-function build_Map(ctx) ::
-  return _with_result @ new Map(), _map_set
+function build_Map() ::
+  return cbor_accum_result @ new Map(), _map_set
 
 
 export const decode_Set = @{}
@@ -91,6 +84,6 @@ export const decode_Set = @{}
   list_stream: build_Set
 
 function _set_add(k, v) :: this.add(v)
-function build_Set(ctx) ::
-  return _with_result @ new Set(), _set_add
+function build_Set() ::
+  return cbor_accum_result @ new Set(), _set_add
 
