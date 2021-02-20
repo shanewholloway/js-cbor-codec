@@ -1,5 +1,4 @@
 
-const objIs = Object.is
 const _obj_kind_ = Function.call.bind @ Object.prototype.toString
 
 export function bind_encode_dispatch(ctx, api) ::
@@ -88,7 +87,7 @@ function encode_number(v, ctx) ::
     // neg int
     ctx.add_int(0x20, -1 - v)
 
-  else if objIs(-0, v) ::
+  else if Object.is(-0, v) ::
     // negative zero; does not play well with identity or Map() lookup
     ctx.raw_frame @ cu8_f32_neg_zero
 

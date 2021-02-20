@@ -6,33 +6,36 @@ export * from './index.jsy'
 const objProtoOf = Object.getPrototypeOf
 
 export class CBOREncoderFull extends CBOREncoder ::
-  bind_encode_object(ctx, lut_types) ::
+  bind_encode_object(/*ctx_outer, lut_types*/) ::
     const lut_encoders = this._encoder_map
 
     return enc_obj$full
 
     function enc_obj$full(v, ctx) ::
-      :: // Lookup .toCBOR and .toJSON extension points
-        if 'function' === typeof v[sym_cbor] ::
-          v[sym_cbor](ctx, v)
-          return true
-
-        if 'function' === typeof v.toJSON ::
-          ctx.encode @ v.toJSON()
-          return true
-
-      // Lookup encoder based on constructor
-      let encoder = lut_encoders.get(v.constructor)
-      if undefined !== encoder ::
-        encoder(v, ctx)
+      // Lookup CBOR extension point via [sym_cbor]
+      if undefined !== v[sym_cbor] ::
+        v[sym_cbor](ctx, v)
         return true
 
-      // Lookup encoder based on prototype chain
-      for let vp = objProtoOf(v); vp !== null; vp = objProtoOf(vp) ::
-        encoder = lut_encoders.get(vp)
-        if undefined !== encoder ::
-          encoder(v, ctx)
-          return true
+      // Lookup .toJSON extension point
+      if 'function' === typeof v.toJSON ::
+        ctx.encode @ v.toJSON()
+        return true
+
+
+      // Lookup encoder using prototype
+      ::
+        // start with the constructor
+        let tip = v, key=v.constructor
+        do ::
+          let encoder = lut_encoders.get(key)
+          if undefined !== encoder ::
+            encoder(v, ctx)
+            return true
+
+          // then the prototype chain
+          key = tip = objProtoOf(tip)
+        while null !== tip
 
 
       // Iterables become indefinite CBOR arrays
