@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const _lut_u8b2 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
   const _lut_u8hex = Array.from(Array(256),
@@ -1213,7 +1213,7 @@
     types: decode_types,
     tags: basic_tags(new Map()),});
 
-  const {decode, iter_decode} = new CBORDecoder();
+  new CBORDecoder();
 
   const { assert } = require('chai');
 
@@ -2677,7 +2677,7 @@
   Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex$1 = Array.from(Array(256),
+  Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8$1(u8) {
@@ -3801,7 +3801,7 @@
     types: decode_types$1,
     tags: basic_tags$1(new Map()),});
 
-  const {decode: decode$1, iter_decode: iter_decode$1} = new CBORDecoder$1();
+  const {decode, iter_decode} = new CBORDecoder$1();
 
   async function * _aiter_move_stream(u8_stream) {
     let n = yield;
@@ -4098,7 +4098,7 @@
       const enc_val = encode(s_128k);
       assert$4.equal(enc_val.byteLength, 0x20000 + 1 + 4);
 
-      const dec_val = decode$1(enc_val);
+      const dec_val = decode(enc_val);
       assert$4.deepEqual(dec_val, s_128k); } ) );
 
     it(`[null] * 256`, (() => {
@@ -4107,7 +4107,7 @@
       const enc_val = encode(a_256);
       assert$4.equal(enc_val.byteLength, 1 + 2 + a_256.length * (1));
 
-      const dec_val = decode$1(enc_val);
+      const dec_val = decode(enc_val);
       assert$4.deepEqual(dec_val, a_256); } ) );
 
     it(`['slot'] * 256`, (() => {
@@ -4117,7 +4117,7 @@
       const enc_val = encode(sa_256);
       assert$4.equal(enc_val.byteLength, 1 + 2 + sa_256.length * (1 + 4));
 
-      const dec_val = decode$1(enc_val);
+      const dec_val = decode(enc_val);
       assert$4.deepEqual(dec_val, sa_256); } ) );
 
 
@@ -4130,7 +4130,7 @@
       assert$4.equal(enc_val.byteLength,
         1 + 1 + sa_70_256.length * (1 + 2 + sa_256.length * (1 + 4)));
 
-      const dec_val = decode$1(enc_val);
+      const dec_val = decode(enc_val);
       assert$4.deepEqual(dec_val, sa_70_256); } ) ); } ) );
 
   class CBORDecoderBase$2 {
@@ -4801,7 +4801,7 @@
     types: decode_types$2,
     tags: basic_tags$2(new Map()),});
 
-  const {decode_stream: decode_stream$1, aiter_decode_stream: aiter_decode_stream$1} = new CBORAsyncDecoder$1();
+  new CBORAsyncDecoder$1();
 
   async function * u8_as_test_stream(u8, test_stream_mode) {
     switch (test_stream_mode) {
