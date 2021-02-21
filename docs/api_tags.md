@@ -9,7 +9,7 @@ Extension utilities:
  - `cbor_decode_ctx.use_overlay()` to override `{list}` or `{map}` types
 
 
-#### Demos
+#### Example
 
 - [exampels/demo_custom_tags.mjs](../exampels/demo_custom_tags.mjs)
 - [exampels/demo_tag_tbd279.mjs](../exampels/demo_tag_tbd279.mjs)

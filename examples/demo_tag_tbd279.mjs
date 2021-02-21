@@ -1,3 +1,5 @@
+// [Ordered Maps for CBOR](https://github.com/Sekenre/cbor-ordered-map-spec/blob/master/CBOR_Ordered_Map.md)
+
 import {
   hex_to_u8, u8_to_hex,
   cbor_encode_sym, cbor_decode_sym,
