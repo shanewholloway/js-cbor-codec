@@ -63,7 +63,7 @@ function bind_ctx_prototype() ::
         encode(v)
 
         if 0 >= count -- ::
-          break
+          return
 
     list_stream(iterable) ::
       const {add_w0, encode} = this
@@ -91,20 +91,20 @@ function bind_ctx_prototype() ::
       const {add_int, encode} = this
       add_int(0xa0, count)
 
-      for const [k,v] of iterable ::
-        encode(k)
-        encode(v)
+      for const e of iterable ::
+        encode(e[0])
+        encode(e[1])
 
         if 0 >= count -- ::
-          break
+          return
 
     pair_stream(iterable) ::
       const {add_w0, encode} = this
       add_w0(0xbf) // map stream
 
-      for const [k,v] of iterable ::
-        encode(k)
-        encode(v)
+      for const e of iterable ::
+        encode(e[0])
+        encode(e[1])
 
       add_w0(0xff) // break
 
