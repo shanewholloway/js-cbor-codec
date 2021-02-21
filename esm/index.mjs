@@ -136,13 +136,9 @@ function bind_encode_dispatch(ctx, api) {
 
     // Lookup table for "simple" special instances
     if (undefined !== simple_map) {
-      let simple = simple_map.get(v);
-      if (undefined !== simple) {
-        if (simple < 24) {
-          ctx.add_w0(0xe0 | simple);}
-        else if (simple <= 0xff) {
-          ctx.add_w1(0xf8, simple);}
-        else throw new Error(`Invalid simple value: ${simple}`)
+      let sv = simple_map.get(v);
+      if (undefined !== sv) {
+        ctx.simple(sv);
         return} }
 
     if (undefined !== v[cbor_encode_sym]) {
@@ -261,7 +257,15 @@ function bind_ctx_prototype() {
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
 
-    tag_encode(tag, value) {
+    simple(v) {
+      // RFC 8949 Simple Values; CBOR Simple Values Registry
+      if (v < 24) {
+        this.add_w0(0xe0 | v);}
+      else if (v <= 0xff) {
+        this.add_w1(0xf8, v);}
+      else throw new Error(`Invalid simple value: ${v}`) }
+
+  , tag_encode(tag, value) {
       const end_tag = this.tag(tag);
       this.encode(value);
       return end_tag()}
