@@ -27,63 +27,38 @@ export const decode_types = @{}
     return new DataView(u8.buffer, idx, 8).getFloat64(0)
 
   bytes(u8) :: return u8
-  bytes_stream: build_bytes
+  bytes_stream:
+    cbor_accum @:
+      init: () => []
+      accum: _res_push
+      done: res => u8_concat(res)
 
   utf8(u8) :: return u8_to_utf8(u8)
-  utf8_stream: build_utf8
+  utf8_stream:
+    cbor_accum @:
+      init: () => []
+      accum: _res_push
+      done: res => res.join('')
 
 
-  empty_list() :: return []
-  list: build_Array
-  list_stream: build_Array
+  list:
+    cbor_accum @:
+      init: () => []
+      accum: _res_attr
 
-  empty_map() :: return {}
-  map: build_Obj
-  map_stream: build_Obj
-
-
-
-function _obj_push(i, v) :: this.push(v)
-function _bytes_done() ::
-  const res = this.res; this.res = null
-  return u8_concat(res)
-
-function build_bytes() ::
-  return cbor_accum_result @ [], _obj_push, _bytes_done
-
-function _utf8_done() ::
-  const res = this.res; this.res = null
-  return res.join('')
-function build_utf8() ::
-  return cbor_accum_result @ [], _obj_push, _utf8_done
+  list_stream() ::
+    return this.list()
 
 
+  map:
+    cbor_accum @:
+      init: () => ({})
+      accum: _res_attr
 
-function _obj_set(k, v) :: this[k] = v
-
-function build_Obj() ::
-  return cbor_accum_result @ {}, _obj_set
-
-function build_Array() ::
-  return cbor_accum_result @ [], _obj_set
-
-
-export const decode_Map = @{}
-  empty_map: () => new Map()
-  map: build_Map
-  map_stream: build_Map
-
-function _map_set(k, v) :: this.set(k, v)
-function build_Map() ::
-  return cbor_accum_result @ new Map(), _map_set
+  map_stream() ::
+    return this.map()
 
 
-export const decode_Set = @{}
-  empty_list: () => new Set()
-  list: build_Set
-  list_stream: build_Set
-
-function _set_add(k, v) :: this.add(v)
-function build_Set() ::
-  return cbor_accum_result @ new Set(), _set_add
+function _res_push(res,i,v) :: res.push(v)
+function _res_attr(res,k,v) :: res[k] = v
 

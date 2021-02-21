@@ -12,41 +12,16 @@ let known_u8 = hex_to_u8(known_hex)
 { // demo standard decoding
   let v_default = cbor_decode(known_u8)
   console.log('Default Decode:', v_default)
+
+  let u8 = cbor_encode(v_default)
+  let hex = u8_to_hex(u8)
+
+  console.log('Hex:', {hex, matches: known_hex == hex})
+  //console.log('U8:', u8)
+  console.log()
 }
 
 { // demo custom decoding
-
-  function tag_272(lut) {
-    let _cbor_as_272 = (ctx, a_map) =>
-      ctx.tag_encode(272, Array.from(a_map.entries()).flat())
-
-    let empty_272 = () =>
-      Object.defineProperty(new Map(),
-        cbor_encode_sym, {value: _cbor_as_272})
-
-    const overlay = {
-      empty_list: empty_272,
-      list() { return this._272_map() },
-      list_stream() { return this._272_map() },
-
-      _272_map() {
-        let k
-        let res = _add.res = empty_272()
-        return _add
-
-        function _add(idx, e) {
-          if (0 === (1 & idx))
-            k = e // first of pair; remember key
-          else
-            res.set(k, e) // second of pair; set (k,v) pair
-        }
-      }
-    }
-
-    lut.set(272, ctx => {
-      ctx.use_overlay(overlay)
-    })
-  }
 
   const custom_cbor = new CBORDecoder({tags: [tag_272]})
 
@@ -60,3 +35,41 @@ let known_u8 = hex_to_u8(known_hex)
   //console.log('U8:', u8)
   console.log()
 }
+
+
+function tag_272(lut, cbor_accum) {
+  class Map272 extends Map {
+    [cbor_encode_sym](ctx) {
+      const end_tag = ctx.tag(272)
+      // flat array of pairs
+      ctx.add_int(0x80, 2 * this.size)
+
+      let {encode} = ctx
+      for (const e of this.entries()) {
+        encode(e[0])
+        encode(e[1])
+      }
+      return end_tag()
+    }
+  }
+
+  const tag_272_overlay = {
+    list: cbor_accum({
+      init: () => ({map: new Map272()}),
+
+      accum(res, idx, e) {
+        if (0 === (1 & idx))
+          res.key = e // first of pair; remember key
+        else
+          res.map.set(res.key, e) // second of pair; set (k,v) pair
+      },
+
+      done: res => res.map,
+    })
+  }
+
+  lut.set(272, ctx => { ctx.use_overlay(tag_272_overlay) })
+
+  return Map272
+}
+

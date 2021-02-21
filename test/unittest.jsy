@@ -1,5 +1,3 @@
-(require('source-map-support') || {install(){}}).install()
-
 import './unit/test_encode_basic_tags.jsy'
 import './unit/test_encode_vectors.jsy'
 

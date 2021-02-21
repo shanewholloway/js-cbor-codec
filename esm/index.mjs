@@ -5,13 +5,17 @@ const cbor_break_sym = Symbol('CBOR-break');
 const cbor_done_sym = Symbol('CBOR-done');
 const cbor_eoc_sym = Symbol('CBOR-EOC');
 
-const cbor_tagged_proto = {
+const cbor_tagged_proto ={
   [Symbol.toStringTag]: 'cbor_tag',
 
   [cbor_encode_sym](enc_ctx, v) {
-    enc_ctx.tag_encode(v.tag, v.body);
-  },
-};
+    enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+function cbor_accum(base) {
+  return iv => ({
+    __proto__: base,
+    res: base.init(iv) })}
 
 Array.from(Array(256),
   (_, v) => v.toString(2).padStart(8, '0'));
@@ -303,7 +307,7 @@ function bind_ctx_prototype() {
         encode(v);
 
         if (0 >= count --) {
-          break} } }
+          return} } }
 
   , list_stream(iterable) {
       const {add_w0, encode} = this;
@@ -331,20 +335,20 @@ function bind_ctx_prototype() {
       const {add_int, encode} = this;
       add_int(0xa0, count);
 
-      for (const [k,v] of iterable) {
-        encode(k);
-        encode(v);
+      for (const e of iterable) {
+        encode(e[0]);
+        encode(e[1]);
 
         if (0 >= count --) {
-          break} } }
+          return} } }
 
   , pair_stream(iterable) {
       const {add_w0, encode} = this;
       add_w0(0xbf); // map stream
 
-      for (const [k,v] of iterable) {
-        encode(k);
-        encode(v);}
+      for (const e of iterable) {
+        encode(e[0]);
+        encode(e[1]);}
 
       add_w0(0xff); } } }// break
 
@@ -633,72 +637,52 @@ const decode_types ={
     return new DataView(u8.buffer, idx, 8).getFloat64(0)}
 
 , bytes(u8) {return u8}
-, bytes_stream: build_bytes
+, bytes_stream:
+    cbor_accum({
+      init: () => []
+    , accum: _res_push
+    , done: res => u8_concat(res)})
 
 , utf8(u8) {return u8_to_utf8(u8)}
-, utf8_stream: build_utf8
+, utf8_stream:
+    cbor_accum({
+      init: () => []
+    , accum: _res_push
+    , done: res => res.join('')})
 
 
-, empty_list() {return []}
-, list: build_Array
-, list_stream: build_Array
+, list:
+    cbor_accum({
+      init: () => []
+    , accum: _res_attr})
 
-, empty_map() {return {}}
-, map: build_Obj
-, map_stream: build_Obj};
-
-
-
-function _with_result(res, fn, done) {
-  fn = fn.bind(res);
-  fn.res = res;
-  if (undefined !== done) {
-    fn.done = done;}
-  return fn}
-
-function _obj_push(i, v) {this.push(v);}
-function _bytes_done() {
-  const res = this.res; this.res = null;
-  return u8_concat(res)}
-
-function build_bytes() {
-  return _with_result([], _obj_push, _bytes_done) }
-
-function _utf8_done() {
-  const res = this.res; this.res = null;
-  return res.join('')}
-function build_utf8() {
-  return _with_result([], _obj_push, _utf8_done) }
+, list_stream() {
+    return this.list()}
 
 
+, map:
+    cbor_accum({
+      init: () => ({})
+    , accum: _res_attr})
 
-function _obj_set(k, v) {this[k] = v;}
+, map_stream() {
+    return this.map()} };
 
-function build_Obj() {
-  return _with_result({}, _obj_set) }
 
-function build_Array() {
-  return _with_result([], _obj_set) }
-
+function _res_push(res,i,v) {res.push(v);}
+function _res_attr(res,k,v) {res[k] = v;}
 
 const decode_Map ={
-  empty_map: () => new Map()
-, map: build_Map
-, map_stream: build_Map};
-
-function _map_set(k, v) {this.set(k, v);}
-function build_Map() {
-  return _with_result(new Map(), _map_set) }
-
+  map:
+    cbor_accum({
+      init: () => new Map()
+    , accum: (res, k, v) => res.set(k, v)}) };
 
 const decode_Set ={
-  empty_list: () => new Set()
-, list: build_Set
-, list_stream: build_Set};
-
-function _set_add(k, v) {this.add(v);}
-function build_Set() {
-  return _with_result(new Set(), _set_add) }
+  list:
+    cbor_accum({
+      init: () => new Set()
+    , accum: (res, i, v) => res.add(v)}) };
 
 function basic_tags(tags_lut) {
   // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -961,10 +945,10 @@ const _cbor_jmp_base ={
 
 
     // streaming data types
-    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx));
-    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx));
-    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx));
-    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx));
+    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream());
+    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream());
+    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream());
+    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream());
 
     // semantic tag
 
@@ -1009,10 +993,10 @@ const _cbor_jmp_base ={
         q.push(... tip);}
 
       else if (tip[cbor_decode_sym]) {
-        tip[cbor_decode_sym](lut, this);}
+        tip[cbor_decode_sym](lut, cbor_accum);}
 
       else if ('function' === typeof tip) {
-        tip(lut, this);}
+        tip(lut, cbor_accum);}
 
       else {
         for (let [k,v] of tip.entries()) {
@@ -1089,46 +1073,40 @@ const _cbor_jmp_sync ={
       u8.subarray(idx, idx + len)) }
 
 , as_list(ctx, len) {
-    if (0 === len) {
-      return ctx.types.empty_list()}
-
-    const accum = ctx.types.list(len);
+    const {res, accum, done} = ctx.types.list(len);
     for (let i=0; i<len; i++) {
-      accum(i, ctx.next_value()); }
+      accum(res, i, ctx.next_value()); }
 
-    return undefined === accum.done ? accum.res : accum.done()}
+    return undefined !== done ? done(res) : res}
 
 , as_map(ctx, len) {
-    if (0 === len) {
-      return ctx.types.empty_map()}
-
-    const accum = ctx.types.map(len);
+    const {res, accum, done} = ctx.types.map(len);
     for (let i=0; i<len; i++) {
       const key = ctx.next_value();
       const value = ctx.next_value();
-      accum(key, value); }
+      accum(res, key, value); }
 
-    return undefined === accum.done ? accum.res : accum.done()}
+    return undefined !== done ? done(res) : res}
 
 
 , // streaming
 
-  as_stream(ctx, accum) {
+  as_stream(ctx, {res, accum, done}) {
     let i = 0;
     while (true) {
       const value = ctx.next_value();
       if (cbor_break_sym === value) {
-        return undefined === accum.done ? accum.res : accum.done()}
+        return undefined !== done ? done(res) : res}
 
-      accum(i++, value); } }
+      accum(res, i++, value); } }
 
-, as_pair_stream(ctx, accum) {
+, as_pair_stream(ctx, {res, accum, done}) {
     while (true) {
       const key = ctx.next_value();
       if (cbor_break_sym === key) {
-        return undefined === accum.done ? accum.res : accum.done()}
+        return undefined !== done ? done(res) : res}
 
-      accum(key, ctx.next_value()); } }
+      accum(res, key, ctx.next_value()); } }
 
 
 , // floating point primitives
@@ -1156,7 +1134,10 @@ const _cbor_jmp_sync ={
     return function(ctx, tag) {
       const tag_handler = tags_lut.get(tag);
       if (tag_handler) {
-        const res = tag_handler(ctx, tag);
+        let res = tag_handler(ctx, tag);
+        if ('object' === typeof res) {
+          return res.custom_tag(ctx, tag)}
+
         const body = ctx.next_value();
         return undefined === res ? body : res(body)}
 
@@ -1322,46 +1303,40 @@ const _cbor_jmp_async ={
       u8.subarray(0, len)) }
 
 , async as_list(ctx, len) {
-    if (0 === len) {
-      return ctx.types.empty_list()}
-
-    const accum = ctx.types.list(len);
+    const {res, accum, done} = ctx.types.list(len);
     for (let i=0; i<len; i++) {
-      accum(i, await ctx.next_value()); }
+      accum(res, i, await ctx.next_value()); }
 
-    return undefined === accum.done ? accum.res : accum.done()}
+    return undefined !== done ? done(res) : res}
 
 , async as_map(ctx, len) {
-    if (0 === len) {
-      return ctx.types.empty_map()}
-
-    const accum = ctx.types.map(len);
+    const {res, accum, done} = ctx.types.map(len);
     for (let i=0; i<len; i++) {
       const key = await ctx.next_value();
       const value = await ctx.next_value();
-      accum(key, value); }
+      accum(res, key, value); }
 
-    return undefined === accum.done ? accum.res : accum.done()}
+    return undefined !== done ? done(res) : res}
 
 
 , // streaming
 
-  async as_stream(ctx, accum) {
+  async as_stream(ctx, {res, accum, done}) {
     let i = 0;
     while (true) {
       const value = await ctx.next_value();
       if (cbor_break_sym === value) {
-        return undefined === accum.done ? accum.res : accum.done()}
+        return undefined !== done ? done(res) : res}
 
-      accum(i++, value); } }
+      accum(res, i++, value); } }
 
-, async as_pair_stream(ctx, accum) {
+, async as_pair_stream(ctx, {res, accum, done}) {
     while (true) {
       const key = await ctx.next_value();
       if (cbor_break_sym === key) {
-        return undefined === accum.done ? accum.res : accum.done()}
+        return undefined !== done ? done(res) : res}
 
-      accum(key, await ctx.next_value()); } }
+      accum(res, key, await ctx.next_value()); } }
 
 
 , // floating point primitives
@@ -1389,6 +1364,9 @@ const _cbor_jmp_async ={
       const tag_handler = tags_lut.get(tag);
       if (tag_handler) {
         const res = await tag_handler(ctx, tag);
+        if ('object' === typeof res) {
+          return res.custom_tag(ctx, tag)}
+
         const body = await ctx.next_value();
         return undefined === res ? body : res(body)}
 
@@ -1424,5 +1402,5 @@ CBORAsyncDecoder.compile({
 
 const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
-export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_decode_sym, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_encode_sym, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_encode_sym as cbor_sym, cbor_tagged_proto, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_accum, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_decode_sym, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_encode_sym, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_encode_sym as cbor_sym, cbor_tagged_proto, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

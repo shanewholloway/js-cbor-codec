@@ -13,18 +13,8 @@ export const cbor_tagged_proto = @{}
     enc_ctx.tag_encode(v.tag, v.body)
 
 
-export const cbor_accum = {} // TODO
-/*
-  with_result: cbor_accum_result
-  ns(ns) ::
-    let fn = ns.accum.bind(ns)
-    fn.done = () => ns.done ? ns.done() : ns.res
-    return fn
+export function cbor_accum(base) ::
+  return iv => ({
+    __proto__: base,
+    res: base.init(iv) })
 
-export function cbor_accum_result(res, fn, done) ::
-  fn = fn.bind(res)
-  fn.res = res
-  if undefined !== done ::
-    fn.done = done
-  return fn
-*/

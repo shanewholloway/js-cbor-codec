@@ -33,13 +33,13 @@ const CBORDecoder = CBORDecoderBasic.options @:
   tags: testing_tags
   types: @{}
     float16
-    bytes(u8) :: return `h'${u8_to_hex(u8)}'`
-    bytes_stream(u8) ::
-      const res = []
-      diag.done = @=> `(_ ${res.join(', ')})`
-      return diag
-
-      function diag(i, h_u8) :: res.push(h_u8)
+    bytes: u8 => `h'${u8_to_hex(u8)}'`
+    bytes_stream: u8 => @:
+      res: []
+      accum(res, i, h_u8) ::
+        res.push(h_u8)
+      done(res) ::
+        return `(_ ${res.join(', ')})`
 
 describe @ 'Decode CBOR Test Vectors', @=> ::
   for const test of test_vectors ::

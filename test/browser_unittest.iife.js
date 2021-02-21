@@ -292,7 +292,7 @@
           encode(v);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , list_stream(iterable) {
         const {add_w0, encode} = this;
@@ -320,20 +320,20 @@
         const {add_int, encode} = this;
         add_int(0xa0, count);
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , pair_stream(iterable) {
         const {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);}
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);}
 
         add_w0(0xff); } } }// break
 
@@ -630,6 +630,25 @@
       i += u8_part.byteLength;}
     return u8}
 
+  const cbor_decode_sym = Symbol('CBOR-decode');
+  const cbor_encode_sym$1 = Symbol('CBOR-encode');
+
+  const cbor_break_sym = Symbol('CBOR-break');
+  const cbor_done_sym = Symbol('CBOR-done');
+  const cbor_eoc_sym = Symbol('CBOR-EOC');
+
+  const cbor_tagged_proto ={
+    [Symbol.toStringTag]: 'cbor_tag',
+
+    [cbor_encode_sym$1](enc_ctx, v) {
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  function cbor_accum(base) {
+    return iv => ({
+      __proto__: base,
+      res: base.init(iv) })}
+
   const decode_types ={
     __proto__: null
 
@@ -656,72 +675,52 @@
       return new DataView(u8.buffer, idx, 8).getFloat64(0)}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_bytes
+  , bytes_stream:
+      cbor_accum({
+        init: () => []
+      , accum: _res_push
+      , done: res => u8_concat$1(res)})
 
   , utf8(u8) {return u8_to_utf8(u8)}
-  , utf8_stream: build_utf8
+  , utf8_stream:
+      cbor_accum({
+        init: () => []
+      , accum: _res_push
+      , done: res => res.join('')})
 
 
-  , empty_list() {return []}
-  , list: build_Array
-  , list_stream: build_Array
+  , list:
+      cbor_accum({
+        init: () => []
+      , accum: _res_attr})
 
-  , empty_map() {return {}}
-  , map: build_Obj
-  , map_stream: build_Obj};
-
-
-
-  function _with_result(res, fn, done) {
-    fn = fn.bind(res);
-    fn.res = res;
-    if (undefined !== done) {
-      fn.done = done;}
-    return fn}
-
-  function _obj_push(i, v) {this.push(v);}
-  function _bytes_done() {
-    const res = this.res; this.res = null;
-    return u8_concat$1(res)}
-
-  function build_bytes() {
-    return _with_result([], _obj_push, _bytes_done) }
-
-  function _utf8_done() {
-    const res = this.res; this.res = null;
-    return res.join('')}
-  function build_utf8() {
-    return _with_result([], _obj_push, _utf8_done) }
+  , list_stream() {
+      return this.list()}
 
 
+  , map:
+      cbor_accum({
+        init: () => ({})
+      , accum: _res_attr})
 
-  function _obj_set(k, v) {this[k] = v;}
+  , map_stream() {
+      return this.map()} };
 
-  function build_Obj() {
-    return _with_result({}, _obj_set) }
 
-  function build_Array() {
-    return _with_result([], _obj_set) }
-
+  function _res_push(res,i,v) {res.push(v);}
+  function _res_attr(res,k,v) {res[k] = v;}
 
   const decode_Map ={
-    empty_map: () => new Map()
-  , map: build_Map
-  , map_stream: build_Map};
-
-  function _map_set(k, v) {this.set(k, v);}
-  function build_Map() {
-    return _with_result(new Map(), _map_set) }
-
+    map:
+      cbor_accum({
+        init: () => new Map()
+      , accum: (res, k, v) => res.set(k, v)}) };
 
   const decode_Set ={
-    empty_list: () => new Set()
-  , list: build_Set
-  , list_stream: build_Set};
-
-  function _set_add(k, v) {this.add(v);}
-  function build_Set() {
-    return _with_result(new Set(), _set_add) }
+    list:
+      cbor_accum({
+        init: () => new Set()
+      , accum: (res, i, v) => res.add(v)}) };
 
   function basic_tags(tags_lut) {
     // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -783,21 +782,6 @@
     tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); });
 
     return tags_lut}
-
-  const cbor_decode_sym = Symbol('CBOR-decode');
-  const cbor_encode_sym$1 = Symbol('CBOR-encode');
-
-  const cbor_break_sym = Symbol('CBOR-break');
-  const cbor_done_sym = Symbol('CBOR-done');
-  const cbor_eoc_sym = Symbol('CBOR-EOC');
-
-  const cbor_tagged_proto = {
-    [Symbol.toStringTag]: 'cbor_tag',
-
-    [cbor_encode_sym$1](enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);
-    },
-  };
 
   class U8DecodeBaseCtx {
 
@@ -999,10 +983,10 @@
 
 
       // streaming data types
-      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx));
-      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx));
-      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx));
-      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx));
+      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream());
+      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream());
+      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream());
+      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream());
 
       // semantic tag
 
@@ -1047,10 +1031,10 @@
           q.push(... tip);}
 
         else if (tip[cbor_decode_sym]) {
-          tip[cbor_decode_sym](lut, this);}
+          tip[cbor_decode_sym](lut, cbor_accum);}
 
         else if ('function' === typeof tip) {
-          tip(lut, this);}
+          tip(lut, cbor_accum);}
 
         else {
           for (let [k,v] of tip.entries()) {
@@ -1127,46 +1111,40 @@
         u8.subarray(idx, idx + len)) }
 
   , as_list(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_list()}
-
-      const accum = ctx.types.list(len);
+      const {res, accum, done} = ctx.types.list(len);
       for (let i=0; i<len; i++) {
-        accum(i, ctx.next_value()); }
+        accum(res, i, ctx.next_value()); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
   , as_map(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_map()}
-
-      const accum = ctx.types.map(len);
+      const {res, accum, done} = ctx.types.map(len);
       for (let i=0; i<len; i++) {
         const key = ctx.next_value();
         const value = ctx.next_value();
-        accum(key, value); }
+        accum(res, key, value); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
 
   , // streaming
 
-    as_stream(ctx, accum) {
+    as_stream(ctx, {res, accum, done}) {
       let i = 0;
       while (true) {
         const value = ctx.next_value();
         if (cbor_break_sym === value) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(i++, value); } }
+        accum(res, i++, value); } }
 
-  , as_pair_stream(ctx, accum) {
+  , as_pair_stream(ctx, {res, accum, done}) {
       while (true) {
         const key = ctx.next_value();
         if (cbor_break_sym === key) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(key, ctx.next_value()); } }
+        accum(res, key, ctx.next_value()); } }
 
 
   , // floating point primitives
@@ -1194,7 +1172,10 @@
       return function(ctx, tag) {
         const tag_handler = tags_lut.get(tag);
         if (tag_handler) {
-          const res = tag_handler(ctx, tag);
+          let res = tag_handler(ctx, tag);
+          if ('object' === typeof res) {
+            return res.custom_tag(ctx, tag)}
+
           const body = ctx.next_value();
           return undefined === res ? body : res(body)}
 
@@ -2065,7 +2046,7 @@
           encode(v);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , list_stream(iterable) {
         const {add_w0, encode} = this;
@@ -2093,20 +2074,20 @@
         const {add_int, encode} = this;
         add_int(0xa0, count);
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , pair_stream(iterable) {
         const {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);}
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);}
 
         add_w0(0xff); } } }// break
 
@@ -2673,13 +2654,17 @@
   const cbor_done_sym$1 = Symbol('CBOR-done');
   const cbor_eoc_sym$1 = Symbol('CBOR-EOC');
 
-  const cbor_tagged_proto$1 = {
+  const cbor_tagged_proto$1 ={
     [Symbol.toStringTag]: 'cbor_tag',
 
     [cbor_encode_sym$3](enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);
-    },
-  };
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  function cbor_accum$1(base) {
+    return iv => ({
+      __proto__: base,
+      res: base.init(iv) })}
 
   Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
@@ -2940,7 +2925,7 @@
           encode(v);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , list_stream(iterable) {
         const {add_w0, encode} = this;
@@ -2968,20 +2953,20 @@
         const {add_int, encode} = this;
         add_int(0xa0, count);
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);
 
           if (0 >= count --) {
-            break} } }
+            return} } }
 
     , pair_stream(iterable) {
         const {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const [k,v] of iterable) {
-          encode(k);
-          encode(v);}
+        for (const e of iterable) {
+          encode(e[0]);
+          encode(e[1]);}
 
         add_w0(0xff); } } }// break
 
@@ -3270,72 +3255,52 @@
       return new DataView(u8.buffer, idx, 8).getFloat64(0)}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_bytes$1
+  , bytes_stream:
+      cbor_accum$1({
+        init: () => []
+      , accum: _res_push$1
+      , done: res => u8_concat$3(res)})
 
   , utf8(u8) {return u8_to_utf8$1(u8)}
-  , utf8_stream: build_utf8$1
+  , utf8_stream:
+      cbor_accum$1({
+        init: () => []
+      , accum: _res_push$1
+      , done: res => res.join('')})
 
 
-  , empty_list() {return []}
-  , list: build_Array$1
-  , list_stream: build_Array$1
+  , list:
+      cbor_accum$1({
+        init: () => []
+      , accum: _res_attr$1})
 
-  , empty_map() {return {}}
-  , map: build_Obj$1
-  , map_stream: build_Obj$1};
-
-
-
-  function _with_result$1(res, fn, done) {
-    fn = fn.bind(res);
-    fn.res = res;
-    if (undefined !== done) {
-      fn.done = done;}
-    return fn}
-
-  function _obj_push$1(i, v) {this.push(v);}
-  function _bytes_done$1() {
-    const res = this.res; this.res = null;
-    return u8_concat$3(res)}
-
-  function build_bytes$1() {
-    return _with_result$1([], _obj_push$1, _bytes_done$1) }
-
-  function _utf8_done$1() {
-    const res = this.res; this.res = null;
-    return res.join('')}
-  function build_utf8$1() {
-    return _with_result$1([], _obj_push$1, _utf8_done$1) }
+  , list_stream() {
+      return this.list()}
 
 
+  , map:
+      cbor_accum$1({
+        init: () => ({})
+      , accum: _res_attr$1})
 
-  function _obj_set$1(k, v) {this[k] = v;}
+  , map_stream() {
+      return this.map()} };
 
-  function build_Obj$1() {
-    return _with_result$1({}, _obj_set$1) }
 
-  function build_Array$1() {
-    return _with_result$1([], _obj_set$1) }
-
+  function _res_push$1(res,i,v) {res.push(v);}
+  function _res_attr$1(res,k,v) {res[k] = v;}
 
   const decode_Map$1 ={
-    empty_map: () => new Map()
-  , map: build_Map$1
-  , map_stream: build_Map$1};
-
-  function _map_set$1(k, v) {this.set(k, v);}
-  function build_Map$1() {
-    return _with_result$1(new Map(), _map_set$1) }
-
+    map:
+      cbor_accum$1({
+        init: () => new Map()
+      , accum: (res, k, v) => res.set(k, v)}) };
 
   const decode_Set$1 ={
-    empty_list: () => new Set()
-  , list: build_Set$1
-  , list_stream: build_Set$1};
-
-  function _set_add$1(k, v) {this.add(v);}
-  function build_Set$1() {
-    return _with_result$1(new Set(), _set_add$1) }
+    list:
+      cbor_accum$1({
+        init: () => new Set()
+      , accum: (res, i, v) => res.add(v)}) };
 
   function basic_tags$1(tags_lut) {
     // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -3598,10 +3563,10 @@
 
 
       // streaming data types
-      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx));
-      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx));
-      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx));
-      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx));
+      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream());
+      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream());
+      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream());
+      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream());
 
       // semantic tag
 
@@ -3646,10 +3611,10 @@
           q.push(... tip);}
 
         else if (tip[cbor_decode_sym$1]) {
-          tip[cbor_decode_sym$1](lut, this);}
+          tip[cbor_decode_sym$1](lut, cbor_accum$1);}
 
         else if ('function' === typeof tip) {
-          tip(lut, this);}
+          tip(lut, cbor_accum$1);}
 
         else {
           for (let [k,v] of tip.entries()) {
@@ -3726,46 +3691,40 @@
         u8.subarray(idx, idx + len)) }
 
   , as_list(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_list()}
-
-      const accum = ctx.types.list(len);
+      const {res, accum, done} = ctx.types.list(len);
       for (let i=0; i<len; i++) {
-        accum(i, ctx.next_value()); }
+        accum(res, i, ctx.next_value()); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
   , as_map(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_map()}
-
-      const accum = ctx.types.map(len);
+      const {res, accum, done} = ctx.types.map(len);
       for (let i=0; i<len; i++) {
         const key = ctx.next_value();
         const value = ctx.next_value();
-        accum(key, value); }
+        accum(res, key, value); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
 
   , // streaming
 
-    as_stream(ctx, accum) {
+    as_stream(ctx, {res, accum, done}) {
       let i = 0;
       while (true) {
         const value = ctx.next_value();
         if (cbor_break_sym$1 === value) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(i++, value); } }
+        accum(res, i++, value); } }
 
-  , as_pair_stream(ctx, accum) {
+  , as_pair_stream(ctx, {res, accum, done}) {
       while (true) {
         const key = ctx.next_value();
         if (cbor_break_sym$1 === key) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(key, ctx.next_value()); } }
+        accum(res, key, ctx.next_value()); } }
 
 
   , // floating point primitives
@@ -3793,7 +3752,10 @@
       return function(ctx, tag) {
         const tag_handler = tags_lut.get(tag);
         if (tag_handler) {
-          const res = tag_handler(ctx, tag);
+          let res = tag_handler(ctx, tag);
+          if ('object' === typeof res) {
+            return res.custom_tag(ctx, tag)}
+
           const body = ctx.next_value();
           return undefined === res ? body : res(body)}
 
@@ -3959,46 +3921,40 @@
         u8.subarray(0, len)) }
 
   , async as_list(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_list()}
-
-      const accum = ctx.types.list(len);
+      const {res, accum, done} = ctx.types.list(len);
       for (let i=0; i<len; i++) {
-        accum(i, await ctx.next_value()); }
+        accum(res, i, await ctx.next_value()); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
   , async as_map(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_map()}
-
-      const accum = ctx.types.map(len);
+      const {res, accum, done} = ctx.types.map(len);
       for (let i=0; i<len; i++) {
         const key = await ctx.next_value();
         const value = await ctx.next_value();
-        accum(key, value); }
+        accum(res, key, value); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
 
   , // streaming
 
-    async as_stream(ctx, accum) {
+    async as_stream(ctx, {res, accum, done}) {
       let i = 0;
       while (true) {
         const value = await ctx.next_value();
         if (cbor_break_sym$1 === value) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(i++, value); } }
+        accum(res, i++, value); } }
 
-  , async as_pair_stream(ctx, accum) {
+  , async as_pair_stream(ctx, {res, accum, done}) {
       while (true) {
         const key = await ctx.next_value();
         if (cbor_break_sym$1 === key) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(key, await ctx.next_value()); } }
+        accum(res, key, await ctx.next_value()); } }
 
 
   , // floating point primitives
@@ -4026,6 +3982,9 @@
         const tag_handler = tags_lut.get(tag);
         if (tag_handler) {
           const res = await tag_handler(ctx, tag);
+          if ('object' === typeof res) {
+            return res.custom_tag(ctx, tag)}
+
           const body = await ctx.next_value();
           return undefined === res ? body : res(body)}
 
@@ -4089,13 +4048,13 @@
     tags: testing_tags
   , types:{
       float16: decode_float16
-    , bytes(u8) {return `h'${u8_to_hex(u8)}'`}
-    , bytes_stream(u8) {
-        const res = [];
-        diag.done = (() =>`(_ ${res.join(', ')})`);
-        return diag
-
-        function diag(i, h_u8) {res.push(h_u8);} } } });
+    , bytes: u8 => `h'${u8_to_hex(u8)}'`
+    , bytes_stream: u8 =>({
+        res: []
+      , accum(res, i, h_u8) {
+          res.push(h_u8);}
+      , done(res) {
+          return `(_ ${res.join(', ')})`} }) } });
 
   describe('Decode CBOR Test Vectors', (() => {
     for (const test of test_vectors) {
@@ -4234,6 +4193,25 @@
   async function * u8_as_stream$1(u8) {
     yield as_u8_buffer$4(u8);}
 
+  const cbor_decode_sym$2 = Symbol('CBOR-decode');
+  const cbor_encode_sym$4 = Symbol('CBOR-encode');
+
+  const cbor_break_sym$2 = Symbol('CBOR-break');
+  const cbor_done_sym$2 = Symbol('CBOR-done');
+  const cbor_eoc_sym$2 = Symbol('CBOR-EOC');
+
+  const cbor_tagged_proto$2 ={
+    [Symbol.toStringTag]: 'cbor_tag',
+
+    [cbor_encode_sym$4](enc_ctx, v) {
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  function cbor_accum$2(base) {
+    return iv => ({
+      __proto__: base,
+      res: base.init(iv) })}
+
   const decode_types$2 ={
     __proto__: null
 
@@ -4260,72 +4238,52 @@
       return new DataView(u8.buffer, idx, 8).getFloat64(0)}
 
   , bytes(u8) {return u8}
-  , bytes_stream: build_bytes$2
+  , bytes_stream:
+      cbor_accum$2({
+        init: () => []
+      , accum: _res_push$2
+      , done: res => u8_concat$4(res)})
 
   , utf8(u8) {return u8_to_utf8$2(u8)}
-  , utf8_stream: build_utf8$2
+  , utf8_stream:
+      cbor_accum$2({
+        init: () => []
+      , accum: _res_push$2
+      , done: res => res.join('')})
 
 
-  , empty_list() {return []}
-  , list: build_Array$2
-  , list_stream: build_Array$2
+  , list:
+      cbor_accum$2({
+        init: () => []
+      , accum: _res_attr$2})
 
-  , empty_map() {return {}}
-  , map: build_Obj$2
-  , map_stream: build_Obj$2};
-
-
-
-  function _with_result$2(res, fn, done) {
-    fn = fn.bind(res);
-    fn.res = res;
-    if (undefined !== done) {
-      fn.done = done;}
-    return fn}
-
-  function _obj_push$2(i, v) {this.push(v);}
-  function _bytes_done$2() {
-    const res = this.res; this.res = null;
-    return u8_concat$4(res)}
-
-  function build_bytes$2() {
-    return _with_result$2([], _obj_push$2, _bytes_done$2) }
-
-  function _utf8_done$2() {
-    const res = this.res; this.res = null;
-    return res.join('')}
-  function build_utf8$2() {
-    return _with_result$2([], _obj_push$2, _utf8_done$2) }
+  , list_stream() {
+      return this.list()}
 
 
+  , map:
+      cbor_accum$2({
+        init: () => ({})
+      , accum: _res_attr$2})
 
-  function _obj_set$2(k, v) {this[k] = v;}
+  , map_stream() {
+      return this.map()} };
 
-  function build_Obj$2() {
-    return _with_result$2({}, _obj_set$2) }
 
-  function build_Array$2() {
-    return _with_result$2([], _obj_set$2) }
-
+  function _res_push$2(res,i,v) {res.push(v);}
+  function _res_attr$2(res,k,v) {res[k] = v;}
 
   const decode_Map$2 ={
-    empty_map: () => new Map()
-  , map: build_Map$2
-  , map_stream: build_Map$2};
-
-  function _map_set$2(k, v) {this.set(k, v);}
-  function build_Map$2() {
-    return _with_result$2(new Map(), _map_set$2) }
-
+    map:
+      cbor_accum$2({
+        init: () => new Map()
+      , accum: (res, k, v) => res.set(k, v)}) };
 
   const decode_Set$2 ={
-    empty_list: () => new Set()
-  , list: build_Set$2
-  , list_stream: build_Set$2};
-
-  function _set_add$2(k, v) {this.add(v);}
-  function build_Set$2() {
-    return _with_result$2(new Set(), _set_add$2) }
+    list:
+      cbor_accum$2({
+        init: () => new Set()
+      , accum: (res, i, v) => res.add(v)}) };
 
   function basic_tags$2(tags_lut) {
     // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -4387,21 +4345,6 @@
     tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$2); });
 
     return tags_lut}
-
-  const cbor_decode_sym$2 = Symbol('CBOR-decode');
-  const cbor_encode_sym$4 = Symbol('CBOR-encode');
-
-  const cbor_break_sym$2 = Symbol('CBOR-break');
-  const cbor_done_sym$2 = Symbol('CBOR-done');
-  const cbor_eoc_sym$2 = Symbol('CBOR-EOC');
-
-  const cbor_tagged_proto$2 = {
-    [Symbol.toStringTag]: 'cbor_tag',
-
-    [cbor_encode_sym$4](enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);
-    },
-  };
 
   class U8DecodeBaseCtx$2 {
 
@@ -4621,10 +4564,10 @@
 
 
       // streaming data types
-      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx));
-      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx));
-      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx));
-      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx));
+      jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream());
+      jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream());
+      jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream());
+      jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream());
 
       // semantic tag
 
@@ -4669,10 +4612,10 @@
           q.push(... tip);}
 
         else if (tip[cbor_decode_sym$2]) {
-          tip[cbor_decode_sym$2](lut, this);}
+          tip[cbor_decode_sym$2](lut, cbor_accum$2);}
 
         else if ('function' === typeof tip) {
-          tip(lut, this);}
+          tip(lut, cbor_accum$2);}
 
         else {
           for (let [k,v] of tip.entries()) {
@@ -4749,46 +4692,40 @@
         u8.subarray(0, len)) }
 
   , async as_list(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_list()}
-
-      const accum = ctx.types.list(len);
+      const {res, accum, done} = ctx.types.list(len);
       for (let i=0; i<len; i++) {
-        accum(i, await ctx.next_value()); }
+        accum(res, i, await ctx.next_value()); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
   , async as_map(ctx, len) {
-      if (0 === len) {
-        return ctx.types.empty_map()}
-
-      const accum = ctx.types.map(len);
+      const {res, accum, done} = ctx.types.map(len);
       for (let i=0; i<len; i++) {
         const key = await ctx.next_value();
         const value = await ctx.next_value();
-        accum(key, value); }
+        accum(res, key, value); }
 
-      return undefined === accum.done ? accum.res : accum.done()}
+      return undefined !== done ? done(res) : res}
 
 
   , // streaming
 
-    async as_stream(ctx, accum) {
+    async as_stream(ctx, {res, accum, done}) {
       let i = 0;
       while (true) {
         const value = await ctx.next_value();
         if (cbor_break_sym$2 === value) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(i++, value); } }
+        accum(res, i++, value); } }
 
-  , async as_pair_stream(ctx, accum) {
+  , async as_pair_stream(ctx, {res, accum, done}) {
       while (true) {
         const key = await ctx.next_value();
         if (cbor_break_sym$2 === key) {
-          return undefined === accum.done ? accum.res : accum.done()}
+          return undefined !== done ? done(res) : res}
 
-        accum(key, await ctx.next_value()); } }
+        accum(res, key, await ctx.next_value()); } }
 
 
   , // floating point primitives
@@ -4816,6 +4753,9 @@
         const tag_handler = tags_lut.get(tag);
         if (tag_handler) {
           const res = await tag_handler(ctx, tag);
+          if ('object' === typeof res) {
+            return res.custom_tag(ctx, tag)}
+
           const body = await ctx.next_value();
           return undefined === res ? body : res(body)}
 
@@ -4984,13 +4924,13 @@
     tags: testing_tags$1
   , types:{
       float16: decode_float16
-    , bytes(u8) {return `h'${u8_to_hex(u8)}'`}
-    , bytes_stream(u8) {
-        const res = [];
-        diag.done = (() =>`(_ ${res.join(', ')})`);
-        return diag
-
-        function diag(i, h_u8) {res.push(h_u8);} } } });
+    , bytes: u8 => `h'${u8_to_hex(u8)}'`
+    , bytes_stream: u8 =>({
+        res: []
+      , accum(res, i, h_u8) {
+          res.push(h_u8);}
+      , done(res) {
+          return `(_ ${res.join(', ')})`} }) } });
 
   describe('Async Decode CBOR Test Vectors', (() => {
     for (const test of test_vectors$1) {
@@ -5136,7 +5076,5 @@
       actual = actual.join('');
       assert$9.equal(known_hex, actual);
       return true} }
-
-  (require('source-map-support') || {install(){}}).install();
 
 }());

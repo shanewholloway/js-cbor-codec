@@ -44,46 +44,40 @@ export const _cbor_jmp_async = @{}
       u8.subarray(0, len)
 
   async as_list(ctx, len) ::
-    if 0 === len ::
-      return ctx.types.empty_list()
-
-    const accum = ctx.types.list(len)
+    const {res, accum, done} = ctx.types.list(len)
     for let i=0; i<len; i++ ::
-      accum @ i, await ctx.next_value()
+      accum @ res, i, await ctx.next_value()
 
-    return undefined === accum.done ? accum.res : accum.done()
+    return undefined !== done ? done(res) : res
 
   async as_map(ctx, len) ::
-    if 0 === len ::
-      return ctx.types.empty_map()
-
-    const accum = ctx.types.map(len)
+    const {res, accum, done} = ctx.types.map(len)
     for let i=0; i<len; i++ ::
       const key = await ctx.next_value()
       const value = await ctx.next_value()
-      accum @ key, value
+      accum @ res, key, value
 
-    return undefined === accum.done ? accum.res : accum.done()
+    return undefined !== done ? done(res) : res
 
 
   // streaming
 
-  async as_stream(ctx, accum) ::
+  async as_stream(ctx, {res, accum, done}) ::
     let i = 0
     while true ::
       const value = await ctx.next_value()
       if cbor_break_sym === value ::
-        return undefined === accum.done ? accum.res : accum.done()
+        return undefined !== done ? done(res) : res
 
-      accum @ i++, value
+      accum @ res, i++, value
 
-  async as_pair_stream(ctx, accum) ::
+  async as_pair_stream(ctx, {res, accum, done}) ::
     while true ::
       const key = await ctx.next_value()
       if cbor_break_sym === key ::
-        return undefined === accum.done ? accum.res : accum.done()
+        return undefined !== done ? done(res) : res
 
-      accum @ key, await ctx.next_value()
+      accum @ res, key, await ctx.next_value()
 
 
   // floating point primitives
@@ -111,6 +105,9 @@ export const _cbor_jmp_async = @{}
       const tag_handler = tags_lut.get(tag)
       if tag_handler ::
         const res = await tag_handler(ctx, tag)
+        if 'object' === typeof res ::
+          return res.custom_tag(ctx, tag)
+
         const body = await ctx.next_value()
         return undefined === res ? body : res(body)
 

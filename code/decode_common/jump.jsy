@@ -88,10 +88,10 @@ export const _cbor_jmp_base = @{}
 
 
     // streaming data types
-    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream(ctx))
-    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream(ctx))
-    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream(ctx))
-    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream(ctx))
+    jmp[0x5f] = ctx => this.as_stream(ctx, ctx.types.bytes_stream())
+    jmp[0x7f] = ctx => this.as_stream(ctx, ctx.types.utf8_stream())
+    jmp[0x9f] = ctx => this.as_stream(ctx, ctx.types.list_stream())
+    jmp[0xbf] = ctx => this.as_pair_stream(ctx, ctx.types.map_stream())
 
     // semantic tag
 

@@ -1,4 +1,16 @@
-import { decode_Map, decode_Set } from './types.jsy'
+import { cbor_accum } from '../sym_cbor.jsy'
+
+export const decode_Map = @{}
+  map:
+    cbor_accum @:
+      init: () => new Map()
+      accum: (res, k, v) => res.set(k, v)
+
+export const decode_Set = @{}
+  list:
+    cbor_accum @:
+      init: () => new Set()
+      accum: (res, i, v) => res.add(v)
 
 export function basic_tags(tags_lut) ::
   // from https://tools.ietf.org/html/rfc7049#section-2.4
