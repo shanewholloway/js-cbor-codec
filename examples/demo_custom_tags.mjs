@@ -13,22 +13,22 @@ class DemoPIDay {
   }
 
   [cbor_encode_sym](enc_ctx) {
-    enc_ctx.tag_encode_object(31415, this)
+    enc_ctx.tag_encode_object(3141592, this)
   }
 
   static [cbor_decode_sym](tag_map) {
     const klass = this /* DemoPIDay */
-    const demo_cbor_pie = (cbor_decode_ctx, tag) =>
+    const demo_cbor_pie = () =>
       obj => new klass(obj.pie)
 
-    tag_map.set(31415, demo_cbor_pie)
+    tag_map.set(3141592, demo_cbor_pie)
   }
 }
 
 
 
 
-let known_hex = 'd97ab7a163706965656170706c65'
+let known_hex = 'da002fefd8a163706965656170706c65'
 let known_u8 = hex_to_u8(known_hex)
 
 
@@ -65,9 +65,10 @@ let known_u8 = hex_to_u8(known_hex)
   console.log()
   console.log("Use CBOR custom tags to read tagged value")
 
-  const custom_cbor = new CBORDecoder({tags: DemoPIDay})
+  const CBORCustom = CBORDecoder
+    .options({tags: [DemoPIDay]})
 
-  let v_custom = custom_cbor.decode(known_u8)
+  let v_custom = CBORCustom.decode(known_u8)
   console.log('Custom Decode:', v_custom)
 
   let u8 = cbor_encode(v_custom)
