@@ -27,7 +27,7 @@ export default [
   // publish leveldb as package that reuses other modules
   {
     input: `code/leveldb.jsy`,
-    plugins, external: () => true,
+    plugins,
     output: [
       { file: `cjs/leveldb.cjs`, format: 'cjs', exports:'default', sourcemap: true },
       { file: `esm/leveldb.mjs`, format: 'es', sourcemap: true },
