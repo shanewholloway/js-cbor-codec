@@ -48,10 +48,8 @@
     "build": "rollup --config",
     "watch": "npm -s run build -- --watch",
     "pretest": "npm -s run build",
-    "test": "cd test && npm -s run test",
-    "posttest": "cd test/leveldb && npm -s run test",
-    "test:install": "cd test && npm -s install",
-    "posttest:install": "cd test/leveldb && npm -s run install",
+    "test": "cd test && npm test",
+    "posttest": "cd test/leveldb && npm test",
     "test:one": "cd test; npm -s run test:one",
     "test:watch": "cd test; npm -s run test:watch"
   }

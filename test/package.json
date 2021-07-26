@@ -1,7 +1,8 @@
 {
   "private": true,
   "dependencies": {
-    "cbor-codec": "file:.."
+    "cbor-codec": "file:..",
+    "u8-utils": "^0.3.8"
   },
   "devDependencies": {
     "@petamoriken/float16": "^2.0.0",
