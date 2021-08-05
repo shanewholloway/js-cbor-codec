@@ -1,8 +1,8 @@
 ### CBOR with Custom Tags
 
 Extension point methods / overrides:
- - `[cbor_encode_sym](cbor_encode_ctx) {}`
- - `static [cbor_decode_sym](tags_lut, cbor_accum) {}`
+ - `to_cbor_encode(cbor_encode_ctx) {}`
+ - `static from_cbor_decode(tags_lut, cbor_accum) {}`
 
 Extension utilities:
  - `cbor_accum({init() {}, accum(res, k, v) {}, done(res) {}})`
@@ -31,13 +31,13 @@ See [Sets 258][] and [Maps 259][] extension implementation in [`decode_common/ba
 #### Encoding with cbor-codec
 
 ```javascript
-import { cbor_encode, cbor_encode_sym } from 'cbor-codec'
+import { cbor_encode } from 'cbor-codec'
 
 class DemoPIDay {
   constructor(pie) { this.pie = pie }
   // ...
 
-  [cbor_encode_sym](enc_ctx) {
+  to_cbor_encode(enc_ctx) {
     enc_ctx.tag_encode_object(3141592, this)
   }
 }
@@ -49,13 +49,11 @@ let u8_demo = cbor_encode(new DemoPIDay('apple'))
 #### Decoding with cbor-codec
 
 ```javascript
-import { cbor_decode_sym } from 'cbor-codec'
-
 class DemoPIDay {
   constructor(pie) { this.pie = pie }
   // ...
 
-  static [cbor_decode_sym](tag_map) {
+  static from_cbor_decode(tag_map) {
     const klass = this /* DemoPIDay */
     const demo_cbor_pie = () =>
       obj => new klass(obj.pie)

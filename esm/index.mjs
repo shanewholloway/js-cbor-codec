@@ -1,6 +1,3 @@
-const cbor_decode_sym = Symbol('CBOR-decode');
-const cbor_encode_sym = Symbol('CBOR-encode');
-
 const cbor_break_sym = Symbol('CBOR-break');
 const cbor_done_sym = Symbol('CBOR-done');
 const cbor_eoc_sym = Symbol('CBOR-EOC');
@@ -8,7 +5,7 @@ const cbor_eoc_sym = Symbol('CBOR-EOC');
 const cbor_tagged_proto ={
   [Symbol.toStringTag]: 'cbor_tag',
 
-  [cbor_encode_sym](enc_ctx, v) {
+  to_cbor_encode(enc_ctx, v) {
     enc_ctx.tag_encode(v.tag, v.body);} };
 
 
@@ -141,8 +138,8 @@ function bind_encode_dispatch(ctx, api) {
         ctx.simple(sv);
         return} }
 
-    if (undefined !== v[cbor_encode_sym]) {
-      v[cbor_encode_sym](ctx, v);
+    if (undefined !== v.to_cbor_encode) {
+      v.to_cbor_encode(ctx, v);
       return}
 
     let encoder = lut_types.get(_obj_kind_(v));
@@ -996,8 +993,8 @@ const _cbor_jmp_base ={
       if (Array.isArray(tip)) {
         q.push(... tip);}
 
-      else if (tip[cbor_decode_sym]) {
-        tip[cbor_decode_sym](lut, cbor_accum);}
+      else if (tip.from_cbor_decode) {
+        tip.from_cbor_decode(lut, cbor_accum);}
 
       else if ('function' === typeof tip) {
         tip(lut, cbor_accum);}
@@ -1151,12 +1148,12 @@ const _cbor_jmp_sync ={
 
 class CBORDecoderBasic extends CBORDecoderBase {
   // decode(u8) ::
-  static decode(u8) {
-    return new this().decode(u8)}
+  static get decode() {
+    return new this().decode}
 
   // *iter_decode(u8) ::
-  static iter_decode(u8) {
-    return new this().iter_decode(u8)}
+  static get iter_decode() {
+    return new this().iter_decode}
 
   _bind_cbor_jmp(options, jmp) {
     return _cbor_jmp_sync.bind_jmp(options, jmp)}
@@ -1380,12 +1377,12 @@ const _cbor_jmp_async ={
 
 class CBORAsyncDecoderBasic extends CBORDecoderBase {
   // async decode_stream(u8_stream, opt) ::
-  static decode_stream(u8_stream, opt) {
-    return new this().decode_stream(u8_stream, opt)}
+  static get decode_stream() {
+    return new this().decode_stream}
 
   // async *aiter_decode_stream(u8_stream, opt) ::
-  static aiter_decode_stream(u8_stream, opt) {
-    return new this().aiter_decode_stream(u8_stream, opt)}
+  static get aiter_decode_stream() {
+    return new this().aiter_decode_stream}
 
   _bind_cbor_jmp(options, jmp) {
     return _cbor_jmp_async.bind_jmp(options, jmp)}
@@ -1406,5 +1403,5 @@ CBORAsyncDecoder.compile({
 
 const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
-export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_accum, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_decode_sym, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_encode_sym, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_encode_sym as cbor_sym, cbor_tagged_proto, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_accum, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_tagged_proto, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

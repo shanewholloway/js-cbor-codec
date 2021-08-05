@@ -2,7 +2,6 @@
 
 import {
   hex_to_u8, u8_to_hex,
-  cbor_encode_sym, cbor_decode_sym,
   cbor_encode,
   cbor_decode,
   CBORDecoder,
@@ -41,7 +40,7 @@ let known_u8 = hex_to_u8(known_hex)
 
 function tag_272(lut, cbor_accum) {
   class Map272 extends Map {
-    [cbor_encode_sym](ctx) {
+    to_cbor_encode(ctx) {
       const end_tag = ctx.tag(272)
       // flat array of pairs
       ctx.add_int(0x80, 2 * this.size)

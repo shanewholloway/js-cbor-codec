@@ -1,4 +1,4 @@
-import { cbor_break_sym, cbor_decode_sym } from '../sym_cbor.jsy'
+import { cbor_break_sym } from '../sym_cbor.jsy'
 import { cbor_accum } from '../sym_cbor.jsy'
 
 export const _cbor_jmp_base = @{}
@@ -135,8 +135,8 @@ export const _cbor_jmp_base = @{}
       if Array.isArray(tip) ::
         q.push(... tip)
 
-      else if tip[cbor_decode_sym] ::
-        tip[cbor_decode_sym](lut, cbor_accum)
+      else if tip.from_cbor_decode ::
+        tip.from_cbor_decode(lut, cbor_accum)
 
       else if 'function' === typeof tip ::
         tip(lut, cbor_accum)

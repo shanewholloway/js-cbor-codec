@@ -1,6 +1,5 @@
 import {
   hex_to_u8, u8_to_hex,
-  cbor_encode_sym, cbor_decode_sym,
   cbor_encode,
   cbor_decode,
   CBORDecoder,
@@ -12,11 +11,11 @@ class DemoPIDay {
     this.pie = pie
   }
 
-  [cbor_encode_sym](enc_ctx) {
+  to_cbor_encode(enc_ctx) {
     enc_ctx.tag_encode_object(3141592, this)
   }
 
-  static [cbor_decode_sym](tag_map) {
+  static from_cbor_decode(tag_map) {
     const klass = this /* DemoPIDay */
     const demo_cbor_pie = () =>
       obj => new klass(obj.pie)
@@ -34,7 +33,7 @@ let known_u8 = hex_to_u8(known_hex)
 
 { // demo encoding
   console.log()
-  console.log("Use [cbor_encode_sym](ctx) callback to write tagged value:")
+  console.log("Use to_cbor_encode(ctx) callback to write tagged value:")
   let u8 = cbor_encode(new DemoPIDay('apple'))
 
   let hex = u8_to_hex(u8)

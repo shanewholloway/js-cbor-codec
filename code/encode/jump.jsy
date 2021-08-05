@@ -1,4 +1,3 @@
-import { cbor_encode_sym } from '../sym_cbor.jsy'
 
 const _obj_kind_ = Function.call.bind @ Object.prototype.toString
 // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
@@ -51,8 +50,8 @@ export function bind_encode_dispatch(ctx, api) ::
         ctx.simple(sv)
         return
 
-    if undefined !== v[cbor_encode_sym] ::
-      v[cbor_encode_sym](ctx, v)
+    if undefined !== v.to_cbor_encode ::
+      v.to_cbor_encode(ctx, v)
       return
 
     let encoder = lut_types.get @ _obj_kind_(v)

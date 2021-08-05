@@ -1,7 +1,3 @@
-export const cbor_decode_sym = Symbol('CBOR-decode')
-export const cbor_encode_sym = Symbol('CBOR-encode')
-export { cbor_encode_sym as cbor_sym }
-
 export const cbor_break_sym = Symbol('CBOR-break')
 export const cbor_done_sym = Symbol('CBOR-done')
 export const cbor_eoc_sym = Symbol('CBOR-EOC')
@@ -9,7 +5,7 @@ export const cbor_eoc_sym = Symbol('CBOR-EOC')
 export const cbor_tagged_proto = @{}
   [Symbol.toStringTag]: 'cbor_tag',
 
-  [cbor_encode_sym](enc_ctx, v) ::
+  to_cbor_encode(enc_ctx, v) ::
     enc_ctx.tag_encode(v.tag, v.body)
 
 
