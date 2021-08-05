@@ -11,8 +11,8 @@ Extension utilities:
 
 #### Example
 
-- [exampels/demo_custom_tags.mjs](../exampels/demo_custom_tags.mjs)
-- [exampels/demo_tag_tbd279.mjs](../exampels/demo_tag_tbd279.mjs)
+- [exampels/demo_custom_tags.mjs](../examples/demo_custom_tags.mjs)
+- [exampels/demo_tag_tbd279.mjs](../examples/demo_tag_tbd279.mjs)
   implementing [Ordered Maps for CBOR](https://github.com/Sekenre/cbor-ordered-map-spec/blob/master/CBOR_Ordered_Map.md)
 
 
