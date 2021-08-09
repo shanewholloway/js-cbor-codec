@@ -7,6 +7,10 @@ async function * _aiter_move_stream(u8_stream) ::
   let i0=0, i1=n
   let u8_tail
 
+  if u8_stream.subarray ::
+    // make an iterable of Uint8Array
+    u8_stream = [u8_stream]
+
   for await let u8 of u8_stream ::
     u8 = as_u8_buffer(u8)
     if u8_tail ::

@@ -1,4 +1,4 @@
-import { CBORDecoderBase, basic_tags, decode_types } from '../decode_common/index.jsy'
+import { CBORDecoderBase, decode_types } from '../decode_common/index.jsy'
 
 import { U8AsyncDecodeCtx } from './u8ctx.jsy'
 import { _cbor_jmp_async } from './jump.jsy'
@@ -28,5 +28,5 @@ export class CBORAsyncDecoder extends CBORAsyncDecoderBasic ::
 
 CBORAsyncDecoder.compile @:
   types: decode_types,
-  tags: basic_tags(new Map()),
+  tags: [true] /* [true] is an alias for [basic_tags] built-in  */
 

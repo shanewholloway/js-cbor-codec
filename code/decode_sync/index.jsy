@@ -28,5 +28,5 @@ export class CBORDecoder extends CBORDecoderBasic ::
 
 CBORDecoder.compile @:
   types: decode_types,
-  tags: basic_tags(new Map()),
+  tags: [true] /* [true] is an alias for [basic_tags] built-in  */
 
