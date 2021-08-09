@@ -2,15 +2,38 @@ export const cbor_break_sym = Symbol('CBOR-break')
 export const cbor_done_sym = Symbol('CBOR-done')
 export const cbor_eoc_sym = Symbol('CBOR-EOC')
 
-export const cbor_tagged_proto = @{}
+export function cbor_accum(base) ::
+  return iv => ({
+    __proto__: base,
+    res: base.init(iv) })
+
+export const cbor_tag = @{}
   [Symbol.toStringTag]: 'cbor_tag',
+
+  from(tag, body) ::
+    return {__proto__: this, tag, body}
 
   to_cbor_encode(enc_ctx, v) ::
     enc_ctx.tag_encode(v.tag, v.body)
 
 
-export function cbor_accum(base) ::
-  return iv => ({
-    __proto__: base,
-    res: base.init(iv) })
+export const cbor_nest = @{}
+  [Symbol.toStringTag]: 'cbor_nest',
+
+  from(body) ::
+    return {__proto__: this, body}
+
+  to_cbor_encode(enc_ctx, v) ::
+    let {body, u8} = v
+    enc_ctx.nest @ body, 'body' in v ? null : u8
+
+  with_ctx(ctx) ::
+    let self = @{}
+      __proto__: this
+      decode_cbor() ::
+        return this.body = ctx
+          .from_nested_u8(this.u8)
+          .decode_cbor()
+
+    return u8 => @: __proto__: self, u8
 

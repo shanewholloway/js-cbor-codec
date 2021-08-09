@@ -1,7 +1,7 @@
 const { assert } = require('chai')
 
 import { u8_to_hex } from 'u8-utils'
-import { CBOREncoder } from 'cbor-codec/esm/encode.mjs'
+import { CBOREncoder, cbor_nest } from 'cbor-codec/esm/encode.mjs'
 import { CBORDecoder } from 'cbor-codec/esm/decode.mjs'
 
 
@@ -81,6 +81,19 @@ describe @ 'Encode CBOR Tags', @=> ::
     assert.ok @ rt instanceof Date, 'Not a Date instance'
     assert.equal @ +v, +rt
 
+  it @ 'Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', @=> ::
+    const v = cbor_nest.from('IETF')
+    const u8 = CBOREncoder.encode(v)
+    assert.equal @ u8_to_hex(u8), 'd818456449455446'
+
+    const rt = CBORDecoder.decode(u8)
+    assert.equal @ typeof rt.decode_cbor, 'function'
+    assert.equal @ v.body, rt.decode_cbor()
+
+    const u8_rt = CBOREncoder.encode(rt)
+    assert.equal @ u8_to_hex(u8_rt), 'd818456449455446'
+
+
   it @ 'Tag 32 -- URI; see Section 2.4.4.3', @=> ::
     const v = new URL @ 'http://example.com/p?q=a'
     const u8 = CBOREncoder.encode(v)
@@ -93,7 +106,7 @@ describe @ 'Encode CBOR Tags', @=> ::
 
   it @ 'Tag 55799 -- Self-describe CBOR; see Section 2.4.5', @=> ::
     const v = @[] 1, 2, 3
-    const u8 = new CBOREncoder().encode @ v, @{} tag: true
+    const u8 = new CBOREncoder().encode @ v, {tag: true}
 
     assert.equal @ u8_to_hex(u8), 'd9d9f783010203'
 

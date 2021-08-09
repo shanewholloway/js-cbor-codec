@@ -1,4 +1,4 @@
-import { cbor_accum } from '../sym_cbor.jsy'
+import { cbor_accum, cbor_nest } from '../sym_cbor.jsy'
 
 export const decode_Map = @{}
   map:
@@ -42,7 +42,7 @@ export function basic_tags(tags_lut) ::
   // tags_lut.set @ 23, () => v => v
 
   // Encoded CBOR data item; see Section 2.4.4.1
-  tags_lut.set @ 24, ctx => u8 => ctx.types.nested_cbor(u8, ctx)
+  tags_lut.set @ 24, ctx => cbor_nest.with_ctx(ctx)
 
   // URI; see Section 2.4.4.3
   tags_lut.set @ 32, () => url_sz => new URL(url_sz)

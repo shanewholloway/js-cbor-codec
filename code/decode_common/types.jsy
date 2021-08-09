@@ -4,11 +4,6 @@ import { cbor_accum } from '../sym_cbor.jsy'
 export const decode_types = @{}
   __proto__: null
 
-  nested_cbor(u8, ctx) ::
-    ctx = ctx.from_nested_u8(u8)
-    u8.decode_cbor = () => ctx.decode_cbor()
-    return u8
-
   u32(u8, idx) ::
     const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3]
     return u32 >>> 0 // unsigned int32

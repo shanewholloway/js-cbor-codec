@@ -260,9 +260,16 @@
         return end_tag()}
 
     , tag(tag, with_tag) {
-        if (true === tag) {tag = 0xd9f7;}
+        if (true === tag) {tag = 0xd9f7; }// CBOR tag
         this.add_int(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+    , nest(v, u8) {
+        if (! u8) {
+          u8 = this.cbor_encode(v);}
+        const end_tag = this.tag(24);
+        this.add_buffer(0x40, u8);
+        return end_tag()}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -356,6 +363,7 @@
     const ctx ={
       __proto__: ctx_prototype$2
     , raw_frame
+    , cbor_encode
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -564,6 +572,27 @@
       ctx.pairs(v.entries(), v.size);
       end_tag();} ); }
 
+
+  const cbor_nest$3 ={
+    [Symbol.toStringTag]: 'cbor_nest',
+
+    from(body) {
+      return {__proto__: this, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      let {body, u8} = v;
+      enc_ctx.nest(body, 'body' in v ? null : u8); }
+
+  , with_ctx(ctx) {
+      let self ={
+        __proto__: this
+      , decode_cbor() {
+          return this.body = ctx
+            .from_nested_u8(this.u8)
+            .decode_cbor()} };
+
+      return u8 =>({__proto__: self, u8}) } };
+
   class CBORDecoderBase$2 {
     // Possible monkeypatch apis responsibilities:
     //   decode() ::
@@ -637,25 +666,43 @@
   const cbor_done_sym$2 = Symbol('CBOR-done');
   const cbor_eoc_sym$2 = Symbol('CBOR-EOC');
 
-  const cbor_tagged_proto$2 ={
-    [Symbol.toStringTag]: 'cbor_tag',
-
-    to_cbor_encode(enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);} };
-
-
   function cbor_accum$2(base) {
     return iv => ({
       __proto__: base,
       res: base.init(iv) })}
 
+  const cbor_tag$2 ={
+    [Symbol.toStringTag]: 'cbor_tag',
+
+    from(tag, body) {
+      return {__proto__: this, tag, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  const cbor_nest$2 ={
+    [Symbol.toStringTag]: 'cbor_nest',
+
+    from(body) {
+      return {__proto__: this, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      let {body, u8} = v;
+      enc_ctx.nest(body, 'body' in v ? null : u8); }
+
+  , with_ctx(ctx) {
+      let self ={
+        __proto__: this
+      , decode_cbor() {
+          return this.body = ctx
+            .from_nested_u8(this.u8)
+            .decode_cbor()} };
+
+      return u8 =>({__proto__: self, u8}) } };
+
   const decode_types$2 ={
     __proto__: null
-
-  , nested_cbor(u8, ctx) {
-      ctx = ctx.from_nested_u8(u8);
-      u8.decode_cbor = () => ctx.decode_cbor();
-      return u8}
 
   , u32(u8, idx) {
       const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
@@ -752,7 +799,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
+    tags_lut.set(24, ctx => cbor_nest$2.with_ctx(ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -1027,6 +1074,9 @@
       while (0 !== q.length) {
         let tip = q.pop();
 
+        if (true === tip) {
+          tip = basic_tags$2;}
+
         if (Array.isArray(tip)) {
           q.push(... tip);}
 
@@ -1179,9 +1229,7 @@
           const body = ctx.next_value();
           return undefined === res ? body : res(body)}
 
-        return {
-          __proto__: cbor_tagged_proto$2,
-          tag, body: ctx.next_value()} } } };
+        return cbor_tag$2.from(tag, ctx.next_value())} } };
 
   class CBORDecoderBasic$1 extends CBORDecoderBase$2 {
     // decode(u8) ::
@@ -1207,7 +1255,7 @@
 
   CBORDecoder$2.compile({
     types: decode_types$2,
-    tags: basic_tags$2(new Map()),});
+    tags: [true] /* [true] is an alias for [basic_tags] built-in  */});
 
   new CBORDecoder$2();
 
@@ -1290,6 +1338,19 @@
       assert$9.ok(rt instanceof Date, 'Not a Date instance');
       assert$9.equal(+v, +rt); } ) );
 
+    it.only('Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', (() => {
+      const v = cbor_nest$3.from('IETF');
+      const u8 = CBOREncoder$2.encode(v);
+      assert$9.equal(u8_to_hex(u8), 'd818456449455446');
+
+      const rt = CBORDecoder$2.decode(u8);
+      assert$9.equal(typeof rt.decode_cbor, 'function');
+      assert$9.equal(v.body, rt.decode_cbor());
+
+      const u8_rt = CBOREncoder$2.encode(rt);
+      assert$9.equal(u8_to_hex(u8_rt), 'd818456449455446'); } ) );
+
+
     it('Tag 32 -- URI; see Section 2.4.4.3', (() => {
       const v = new URL('http://example.com/p?q=a');
       const u8 = CBOREncoder$2.encode(v);
@@ -1302,7 +1363,7 @@
 
     it('Tag 55799 -- Self-describe CBOR; see Section 2.4.5', (() => {
       const v =[1, 2, 3];
-      const u8 = new CBOREncoder$2().encode(v,{tag: true});
+      const u8 = new CBOREncoder$2().encode(v, {tag: true});
 
       assert$9.equal(u8_to_hex(u8), 'd9d9f783010203');
 
@@ -2014,9 +2075,16 @@
         return end_tag()}
 
     , tag(tag, with_tag) {
-        if (true === tag) {tag = 0xd9f7;}
+        if (true === tag) {tag = 0xd9f7; }// CBOR tag
         this.add_int(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+    , nest(v, u8) {
+        if (! u8) {
+          u8 = this.cbor_encode(v);}
+        const end_tag = this.tag(24);
+        this.add_buffer(0x40, u8);
+        return end_tag()}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -2110,6 +2178,7 @@
     const ctx ={
       __proto__: ctx_prototype$1
     , raw_frame
+    , cbor_encode
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -2407,14 +2476,14 @@
       assert$7.equal(ans.toISOString(), '2013-03-21T20:04:00.500Z'); } ) );
 
     it('Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', (() => {
-      const u8 = CBORDecoder$2.decode(hex_to_u8(
+      const ans = CBORDecoder$2.decode(hex_to_u8(
         'd818 456449455446') );
 
-      assert$7.deepEqual(Array.from(u8), [ 100, 73, 69, 84, 70 ]);
-      assert$7.equal(typeof u8.decode_cbor, 'function');
+      assert$7.deepEqual(Array.from(ans.u8), [ 100, 73, 69, 84, 70 ]);
+      assert$7.equal(typeof ans.decode_cbor, 'function');
 
-      const ans = u8.decode_cbor();
-      assert$7.equal(ans, 'IETF'); } ) );
+      const inner = ans.decode_cbor();
+      assert$7.equal(inner, 'IETF'); } ) );
 
     it('Tag 32 -- URI; see Section 2.4.4.3', (() => {
       const url = CBORDecoder$2.decode(hex_to_u8(
@@ -2654,17 +2723,40 @@
   const cbor_done_sym$1 = Symbol('CBOR-done');
   const cbor_eoc_sym$1 = Symbol('CBOR-EOC');
 
-  const cbor_tagged_proto$1 ={
-    [Symbol.toStringTag]: 'cbor_tag',
-
-    to_cbor_encode(enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);} };
-
-
   function cbor_accum$1(base) {
     return iv => ({
       __proto__: base,
       res: base.init(iv) })}
+
+  const cbor_tag$1 ={
+    [Symbol.toStringTag]: 'cbor_tag',
+
+    from(tag, body) {
+      return {__proto__: this, tag, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  const cbor_nest$1 ={
+    [Symbol.toStringTag]: 'cbor_nest',
+
+    from(body) {
+      return {__proto__: this, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      let {body, u8} = v;
+      enc_ctx.nest(body, 'body' in v ? null : u8); }
+
+  , with_ctx(ctx) {
+      let self ={
+        __proto__: this
+      , decode_cbor() {
+          return this.body = ctx
+            .from_nested_u8(this.u8)
+            .decode_cbor()} };
+
+      return u8 =>({__proto__: self, u8}) } };
 
   Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
@@ -2894,9 +2986,16 @@
         return end_tag()}
 
     , tag(tag, with_tag) {
-        if (true === tag) {tag = 0xd9f7;}
+        if (true === tag) {tag = 0xd9f7; }// CBOR tag
         this.add_int(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+    , nest(v, u8) {
+        if (! u8) {
+          u8 = this.cbor_encode(v);}
+        const end_tag = this.tag(24);
+        this.add_buffer(0x40, u8);
+        return end_tag()}
 
     , bytes_stream(iterable) {
         const {add_w0, add_bytes} = this;
@@ -2990,6 +3089,7 @@
     const ctx ={
       __proto__: ctx_prototype
     , raw_frame
+    , cbor_encode
 
     , add_w0(bkind) {
         next_frame(bkind, 1);}
@@ -3236,11 +3336,6 @@
   const decode_types$1 ={
     __proto__: null
 
-  , nested_cbor(u8, ctx) {
-      ctx = ctx.from_nested_u8(u8);
-      u8.decode_cbor = () => ctx.decode_cbor();
-      return u8}
-
   , u32(u8, idx) {
       const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
       return u32 >>> 0 }// unsigned int32
@@ -3336,7 +3431,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
+    tags_lut.set(24, ctx => cbor_nest$1.with_ctx(ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -3611,6 +3706,9 @@
       while (0 !== q.length) {
         let tip = q.pop();
 
+        if (true === tip) {
+          tip = basic_tags$1;}
+
         if (Array.isArray(tip)) {
           q.push(... tip);}
 
@@ -3763,9 +3861,7 @@
           const body = ctx.next_value();
           return undefined === res ? body : res(body)}
 
-        return {
-          __proto__: cbor_tagged_proto$1,
-          tag, body: ctx.next_value()} } } };
+        return cbor_tag$1.from(tag, ctx.next_value())} } };
 
   class CBORDecoderBasic extends CBORDecoderBase$1 {
     // decode(u8) ::
@@ -3791,7 +3887,7 @@
 
   CBORDecoder$1.compile({
     types: decode_types$1,
-    tags: basic_tags$1(new Map()),});
+    tags: [true] /* [true] is an alias for [basic_tags] built-in  */});
 
   const {decode, iter_decode} = new CBORDecoder$1();
 
@@ -3799,6 +3895,10 @@
     let n = yield;
     let i0=0, i1=n;
     let u8_tail;
+
+    if (u8_stream.subarray) {
+      // make an iterable of Uint8Array
+      u8_stream = [u8_stream];}
 
     for await (let u8 of u8_stream) {
       u8 = as_u8_buffer$1(u8);
@@ -3992,9 +4092,7 @@
           const body = await ctx.next_value();
           return undefined === res ? body : res(body)}
 
-        return {
-          __proto__: cbor_tagged_proto$1,
-          tag, body: await ctx.next_value()} } } };
+        return cbor_tag$1.from(tag, await ctx.next_value())} } };
 
   class CBORAsyncDecoderBasic$1 extends CBORDecoderBase$1 {
     // async decode_stream(u8_stream, opt) ::
@@ -4020,7 +4118,7 @@
 
   CBORAsyncDecoder$2.compile({
     types: decode_types$1,
-    tags: basic_tags$1(new Map()),});
+    tags: [true] /* [true] is an alias for [basic_tags] built-in  */});
 
   const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder$2();
 
@@ -4201,25 +4299,43 @@
   const cbor_done_sym = Symbol('CBOR-done');
   const cbor_eoc_sym = Symbol('CBOR-EOC');
 
-  const cbor_tagged_proto ={
-    [Symbol.toStringTag]: 'cbor_tag',
-
-    to_cbor_encode(enc_ctx, v) {
-      enc_ctx.tag_encode(v.tag, v.body);} };
-
-
   function cbor_accum(base) {
     return iv => ({
       __proto__: base,
       res: base.init(iv) })}
 
+  const cbor_tag ={
+    [Symbol.toStringTag]: 'cbor_tag',
+
+    from(tag, body) {
+      return {__proto__: this, tag, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      enc_ctx.tag_encode(v.tag, v.body);} };
+
+
+  const cbor_nest ={
+    [Symbol.toStringTag]: 'cbor_nest',
+
+    from(body) {
+      return {__proto__: this, body}}
+
+  , to_cbor_encode(enc_ctx, v) {
+      let {body, u8} = v;
+      enc_ctx.nest(body, 'body' in v ? null : u8); }
+
+  , with_ctx(ctx) {
+      let self ={
+        __proto__: this
+      , decode_cbor() {
+          return this.body = ctx
+            .from_nested_u8(this.u8)
+            .decode_cbor()} };
+
+      return u8 =>({__proto__: self, u8}) } };
+
   const decode_types ={
     __proto__: null
-
-  , nested_cbor(u8, ctx) {
-      ctx = ctx.from_nested_u8(u8);
-      u8.decode_cbor = () => ctx.decode_cbor();
-      return u8}
 
   , u32(u8, idx) {
       const u32 = (u8[idx] << 24) | (u8[idx+1] << 16) | (u8[idx+2] << 8) | u8[idx+3];
@@ -4316,7 +4432,7 @@
     // tags_lut.set @ 23, () => v => v
 
     // Encoded CBOR data item; see Section 2.4.4.1
-    tags_lut.set(24, ctx => u8 => ctx.types.nested_cbor(u8, ctx));
+    tags_lut.set(24, ctx => cbor_nest.with_ctx(ctx));
 
     // URI; see Section 2.4.4.3
     tags_lut.set(32, () => url_sz => new URL(url_sz));
@@ -4394,6 +4510,10 @@
     let n = yield;
     let i0=0, i1=n;
     let u8_tail;
+
+    if (u8_stream.subarray) {
+      // make an iterable of Uint8Array
+      u8_stream = [u8_stream];}
 
     for await (let u8 of u8_stream) {
       u8 = as_u8_buffer(u8);
@@ -4609,6 +4729,9 @@
       while (0 !== q.length) {
         let tip = q.pop();
 
+        if (true === tip) {
+          tip = basic_tags;}
+
         if (Array.isArray(tip)) {
           q.push(... tip);}
 
@@ -4760,9 +4883,7 @@
           const body = await ctx.next_value();
           return undefined === res ? body : res(body)}
 
-        return {
-          __proto__: cbor_tagged_proto,
-          tag, body: await ctx.next_value()} } } };
+        return cbor_tag.from(tag, await ctx.next_value())} } };
 
   class CBORAsyncDecoderBasic extends CBORDecoderBase {
     // async decode_stream(u8_stream, opt) ::
@@ -4788,7 +4909,7 @@
 
   CBORAsyncDecoder$1.compile({
     types: decode_types,
-    tags: basic_tags(new Map()),});
+    tags: [true] /* [true] is an alias for [basic_tags] built-in  */});
 
   new CBORAsyncDecoder$1();
 
@@ -4844,14 +4965,14 @@
           assert$4.equal(ans.toISOString(), '2013-03-21T20:04:00.500Z'); }) );
 
         it('Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', (async () => {
-          const u8 = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
+          const ans = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
             'd818 456449455446') );
 
-          assert$4.deepEqual(Array.from(u8), [ 100, 73, 69, 84, 70 ]);
-          assert$4.equal(typeof u8.decode_cbor, 'function');
+          assert$4.deepEqual(Array.from(ans.u8), [ 100, 73, 69, 84, 70 ]);
+          assert$4.equal(typeof ans.decode_cbor, 'function');
 
-          const ans = await u8.decode_cbor();
-          assert$4.equal(ans, 'IETF'); }) );
+          const inner = await ans.decode_cbor();
+          assert$4.equal(inner, 'IETF'); }) );
 
         it('Tag 32 -- URI; see Section 2.4.4.3', (async () => {
           const url = await CBORAsyncDecoder$1.decode_stream(hex_to_u8_stream(
