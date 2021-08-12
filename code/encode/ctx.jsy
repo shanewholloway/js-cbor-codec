@@ -40,11 +40,17 @@ function bind_ctx_prototype() ::
       this.add_int(0xc0, tag)
       return with_tag || this.host.with_tag(tag)
 
-    nest(v, u8) ::
-      if ! u8 ::
-        u8 = this.cbor_encode(v)
+    sub_encode(v, opt) ::
+      // lazy bind sub_encode on first use
+      let fn = this.sub_encode =
+        bind_encoder_context()
+          .rebind(this.host)
+      return fn(v, opt)
+
+    nest(v, u8_pre) ::
       const end_tag = this.tag(24)
-      this.add_buffer(0x40, u8)
+      this.add_buffer @ 0x40,
+        u8_pre || this.sub_encode(v)
       return end_tag()
 
     bytes_stream(iterable) ::
@@ -139,7 +145,6 @@ export function bind_encoder_context(stream) ::
   const ctx = @{}
     __proto__: ctx_prototype
     raw_frame
-    cbor_encode
 
     add_w0(bkind) ::
       next_frame(bkind, 1)
