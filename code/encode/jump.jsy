@@ -14,7 +14,7 @@ export function bind_encode_dispatch(ctx, api) ::
   api.rebind = rebind
   return
 
-  function rebind(host) ::
+  function rebind(host=ctx.host) ::
     Object.defineProperties @ ctx, @{}
       host: {value: host}
 
@@ -35,6 +35,8 @@ export function bind_encode_dispatch(ctx, api) ::
       lut_types.set @ _obj_kind_({}), encode_object
     else encode_object = lut_types.get @ _obj_kind_({})
 
+    return api // as fluent API
+
 
   function encode(v) ::
     // Lookup table for well-known values directly to CBOR zero-width encodings
@@ -51,16 +53,14 @@ export function bind_encode_dispatch(ctx, api) ::
         return
 
     if undefined !== v.to_cbor_encode ::
-      v.to_cbor_encode(ctx, v)
-      return
+      return v.to_cbor_encode(ctx, v) // pass through promises
 
     let encoder = lut_types.get @ _obj_kind_(v)
     if undefined !== encoder ::
-      encoder(v, ctx)
-      return
+      return encoder(v, ctx) // pass through promises
 
     // not '[object Object]', but also not handled explicitly. (e.g. [object Date])
-    encode_object(v, ctx)
+    return encode_object(v, ctx) // pass through promises
 
 
 

@@ -10,7 +10,11 @@ CBOREncoder.prototype.with_encoders(basic_tag_encoders, true)
 
 
 
-export function basic_tag_encoders(add_encoder) ::
+export function basic_tag_encoders(add_encoder, host) ::
+  //if ! host.allow_async ::
+  add_encoder @ Promise.resolve(), () => ::
+    throw new Error('Promises not supported for CBOR encoding')
+
   // tag 1 -- Date
   add_encoder @ new Date(), (v, ctx) => ::
     const end_tag = ctx.tag(1)
