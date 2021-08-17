@@ -122,27 +122,35 @@ export function use_encoder_for(lut_types, example, encoder) ::
 const lut_common_types = bind_builtin_types @ new Map()
 
 export function bind_builtin_types(lut_types) ::
-  use_encoder_for @ lut_types, NaN, (v, ctx) => :: ctx.raw_frame @ cu8_f32_nan
-  use_encoder_for @ lut_types, undefined, (v, ctx) => :: ctx.add_w0(0xf7)
-  use_encoder_for @ lut_types, null, (v, ctx) => :: ctx.add_w0(0xf6)
-  use_encoder_for @ lut_types, true, (v, ctx) => :: ctx.add_w0(v ? 0xf5 : 0xf4)
-  use_encoder_for @ lut_types, 'utf8', (v, ctx) => :: ctx.add_utf8(v)
+  use_encoder_for @ lut_types, NaN, (v, ctx) => ctx.raw_frame @ cu8_f32_nan
+  use_encoder_for @ lut_types, undefined, (v, ctx) => ctx.add_w0(0xf7)
+  use_encoder_for @ lut_types, null, (v, ctx) => ctx.add_w0(0xf6)
+  use_encoder_for @ lut_types, true, (v, ctx) => ctx.add_w0(v ? 0xf5 : 0xf4)
+  use_encoder_for @ lut_types, 'utf8', (v, ctx) => ctx.add_utf8(v)
   use_encoder_for @ lut_types, 42, encode_number
   use_encoder_for @ lut_types, 42.1, encode_number
-  use_encoder_for @ lut_types, [], (v, ctx) => :: ctx.array(v)
-  use_encoder_for @ lut_types, {}, (v, ctx) => :: ctx.object_pairs(v)
+  use_encoder_for @ lut_types, [], (v, ctx) => ctx.array(v)
+  use_encoder_for @ lut_types, {}, (v, ctx) => ctx.object_pairs(v)
 
-  use_encoder_for @ lut_types, parseInt, @=> ::
-  use_encoder_for @ lut_types, Symbol.iterator, @=> ::
+
+  ::
+    let _ignore = ()=>{}
+    for let each of @[]
+        parseInt, // functions
+        Symbol.iterator, // Symbols
+        ::
+      use_encoder_for @ lut_types, ea, _ignore
 
 
   :: // ArrayBuffer and friends
     const ab = new ArrayBuffer(0)
-    function encode_bytes(v, ctx) :: ctx.add_bytes(v)
+    let encode_bytes = (v, ctx) => ctx.add_bytes(v)
     use_encoder_for @ lut_types, ab, encode_bytes
+    use_encoder_for @ lut_types, new Uint8Array(ab), encode_bytes
 
+    // TODO: tag with array data kind and big/little endianess
     for const ArrayDataKlass of @[]
-        Int8Array, Uint8Array, Uint8ClampedArray,
+        Int8Array, Uint8ClampedArray,
         Int16Array, Uint16Array, Int32Array, Uint32Array,
         Float32Array, Float64Array, DataView ::
 

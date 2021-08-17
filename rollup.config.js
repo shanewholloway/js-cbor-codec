@@ -16,12 +16,12 @@ const plugins_min = [...plugins, rpi_terser({}) ]
 export default [
 
   ... add_jsy('index'),
-  ... add_jsy('full'),
+  //... add_jsy('full'),
   ... add_jsy('encode'),
-  ... add_jsy('encode_full'),
+  //... add_jsy('encode_full'),
   ... add_jsy('decode'),
   ... add_jsy('decode_async'),
-  ... add_jsy('decode_full'),
+  //... add_jsy('decode_full'),
   ... add_jsy('float16'),
 
   // publish leveldb as package that reuses other modules

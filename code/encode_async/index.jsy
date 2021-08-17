@@ -1,0 +1,14 @@
+import {CBOREncoderBasic, basic_tag_encoders, _bind_encoder_context} from '../encode_common/index.jsy'
+import {ctx_encode_sync} from './ctx.jsy'
+
+export * from './ctx.jsy'
+
+
+export class CBORAsyncEncoder extends CBOREncoderBasic ::
+  _bind_u8ctx(stream) ::
+    let encode = _bind_encoder_context @
+      stream, this._ctx_encode || ctx_encode_async
+    return encode.rebind(this)
+
+CBORAsyncEncoder.with_encoders(basic_tag_encoders)
+

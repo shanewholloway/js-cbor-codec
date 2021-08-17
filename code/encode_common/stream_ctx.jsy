@@ -1,0 +1,165 @@
+import { utf8_to_u8, as_u8_buffer, u8_concat } from '../u8_utils.jsy'
+import { bind_encode_dispatch } from './jump.jsy'
+
+
+export function _bind_encoder_context(stream, ctx_prototype) ::
+  const W0=0, W1=24, W2=25, W4=26, W8=27 
+
+  let idx_frame = 0, idx_next = 0
+  if null == stream ::
+    stream = u8concat_outstream()
+  else if !stream.flush && stream[Symbol.asyncIterator] ::
+    stream = aiter_outstream(stream)
+
+  const block_size = stream.block_size || 65536
+  const u8_tip = new Uint8Array(block_size)
+  const dv_tip = new DataView(u8_tip.buffer)
+
+  const ctx = @{}
+    __proto__: ctx_prototype
+    raw_frame
+
+    add_w0(bkind) ::
+      next_frame(bkind, 1)
+
+    add_w1(bkind, v8) ::
+      u8_tip[ next_frame(bkind, 2) ] = v8
+
+    add_int
+    add_bytes
+    add_utf8
+    add_buffer
+
+    add_tag
+    nest_u8: u8 => @ add_tag(24), add_bytes(u8)
+
+    float16_short(u16) ::
+      dv_tip.setUint16 @ next_frame(0xf9, 3), v
+
+    float32(v) ::
+      dv_tip.setFloat32 @ next_frame(0xfa, 5), v
+
+    float64(v) ::
+      dv_tip.setFloat64 @ next_frame(0xfb, 9), v
+
+
+  bind_encode_dispatch(ctx, cbor_encode)
+  return cbor_encode
+
+
+  function cbor_encode(v, opt) ::
+    let p = (undefined === opt || null === opt)
+      ? ctx.encode(v)
+      : ctx.tag_encode @ opt.tag || opt, v
+
+    return undefined !== p
+      ? p.then(_flush)
+      : _flush()
+
+
+  function _flush() ::
+    // flush complete cbor_encode op
+    let blk = 0 === idx_next ? null
+      : u8_tip.slice(0, idx_next)
+
+    idx_frame = idx_next = 0
+    return stream.flush(blk)
+
+
+
+  function add_int(mask, v) ::
+    if v <= 0xffff ::
+      if v < 24 :: // tiny
+        next_frame(mask | v, 1)
+
+      else if v <= 0xff ::
+        u8_tip[ next_frame(mask | W1, 2) ] = v
+
+      else ::
+        dv_tip.setUint16 @ next_frame(mask | W2, 3), v
+
+    else if v <= 0xffffffff ::
+      dv_tip.setUint32 @ next_frame(mask | W4, 5), v
+
+    else ::
+      const idx = next_frame(mask | W8, 9)
+
+      const v_hi = (v / 0x100000000) | 0
+      dv_tip.setUint32(idx, v_hi)
+
+      const v_lo = v & 0xffffffff
+      dv_tip.setUint32(4+idx, v_lo)
+
+  function add_bytes(v) ::
+    add_buffer @ 0x40, as_u8_buffer(v)
+
+  function add_utf8(v) ::
+    add_buffer @ 0x60, utf8_to_u8(v)
+
+  function add_buffer(mask, buf) ::
+    add_int @ mask, buf.byteLength
+    raw_frame(buf)
+
+  function add_tag(tag) ::
+    if true === tag ::
+      tag = 0xd9f7 // official CBOR prefix tag
+
+    add_int @ 0xc0, tag
+
+  // block paging
+
+  function next_frame(bkind, frameWidth) ::
+    idx_frame = idx_next; idx_next += frameWidth
+    if idx_next > block_size ::
+      stream.write @ u8_tip.slice(0, idx_frame)
+      idx_frame = 0
+      idx_next = frameWidth
+
+    u8_tip[idx_frame] = bkind
+    return 1 + idx_frame
+
+
+  function raw_frame(buf) ::
+    const len = buf.byteLength
+    idx_frame = idx_next; idx_next += len
+    if idx_next <= block_size ::
+      u8_tip.set(buf, idx_frame)
+      return
+
+    if 0 !== idx_frame ::
+      stream.write @ u8_tip.slice(0, idx_frame)
+
+    idx_frame = idx_next = 0
+    stream.write @ buf
+
+
+
+export function u8concat_outstream() ::
+  let blocks = []
+  return @{}
+    write(blk) :: blocks.push(blk)
+    flush(blk) ::
+      if 0 === blocks.length ::
+        return blk
+
+      if null !== blk ::
+        blocks.push(blk)
+      const u8 = u8_concat(blocks)
+      blocks = []
+      return u8
+
+
+export function aiter_outstream(aiter_out) ::
+  let _x_tail
+  return @{}
+    write(blk) ::
+      _x_tail = aiter_out.next(blk)
+
+    async flush(blk) ::
+      let tail = (null !== blk)
+        ? aiter_out.next(blk)
+        : _x_tail
+
+      _x_tail = null
+      return await tail
+

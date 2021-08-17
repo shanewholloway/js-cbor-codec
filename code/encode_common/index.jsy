@@ -1,13 +1,7 @@
-import CBOREncoderBasic from './basic.jsy'
+export {CBOREncoderBasic} from './basic.jsy'
+export {_bind_encoder_context} from './stream_ctx.jsy'
 
 export * from './jump.jsy'
-export * from './ctx.jsy'
-
-
-export class CBOREncoder extends CBOREncoderBasic ::
-
-CBOREncoder.prototype.with_encoders(basic_tag_encoders, true)
-
 
 
 export function basic_tag_encoders(add_encoder, host) ::

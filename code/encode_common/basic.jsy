@@ -1,4 +1,3 @@
-import { bind_encoder_context } from './ctx.jsy'
 import { use_encoder_for } from './jump.jsy'
 
 export class CBOREncoderBasic ::
@@ -10,8 +9,12 @@ export class CBOREncoderBasic ::
     return stream => new this(stream).encode
 
   constructor(stream) ::
-    this.encode = bind_encoder_context(stream)
-    this.rebind()
+    this.encode = this._bind_u8ctx(stream)
+
+  _bind_u8ctx(stream) ::
+    let encode = _bind_encoder_context @
+      stream, this._ctx_encode || ctx_encode_sync
+    return encode.rebind(this)
 
   rebind() ::
     this.encode.rebind(this)
@@ -31,6 +34,10 @@ export class CBOREncoderBasic ::
       this.rebind()
     return this._simple_map
 
+  static with_encoders(...args) ::
+    this.prototype.with_encoders(fn_block, true)
+    return this
+
   with_encoders(fn_block, skip_rebind) ::
     let enc_map = this._encoder_map = new Map(this._encoder_map)
     let add_encoder = use_encoder_for.bind(null, enc_map)
@@ -42,4 +49,3 @@ export class CBOREncoderBasic ::
 CBOREncoderBasic.prototype._encoder_map = new Map()
 function noop() {}
 
-export default CBOREncoderBasic

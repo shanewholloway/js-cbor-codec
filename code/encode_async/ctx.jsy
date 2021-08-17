@@ -1,0 +1,93 @@
+import {ctx_encode_simple} from '../encode_common/ctx.jsy'
+
+export const ctx_encode_async = @{}
+    __proto__: ctx_encode_simple
+
+    async array(arr) ::
+      const {add_int, encode} = this
+      const len = arr.length
+      add_int(0x80, len)
+
+      let p
+      for let i=0; i<len; i++ ::
+        p = encode(arr[i])
+        if p :: await p
+
+    async list(iterable, count) ::
+      const {add_int, encode} = this
+      add_int(0x80, count)
+
+      let p
+      for const v of iterable ::
+        p = encode(v)
+        if p :: await p
+
+        if 0 >= count -- ::
+          return
+
+    async list_stream(iterable) ::
+      const {add_w0, encode} = this
+      add_w0(0x9f) // list stream
+
+      let p
+      for const v of iterable ::
+        p = encode(v)
+        if p :: await p
+
+      add_w0(0xff) // break
+
+
+    async object_pairs(v) ::
+      const {add_int, encode} = this
+      const ns = Object.entries(v)
+      const count = ns.length
+
+      add_int(0xa0, count)
+
+      let p
+      for let i=0; i<count; i++ ::
+        const e = ns[i]
+
+        p = encode(e[0])
+        if p :: await p
+
+        p = encode(e[1])
+        if p :: await p
+
+
+    async pairs(iterable, count) ::
+      const {add_int, encode} = this
+      add_int(0xa0, count)
+
+      let p
+      for const e of iterable ::
+        p = encode(e[0])
+        if p :: await p
+
+        p = encode(e[1])
+        if p :: await p
+
+        if 0 >= count -- ::
+          return
+
+    async pair_stream(iterable) ::
+      const {add_w0, encode} = this
+      add_w0(0xbf) // map stream
+
+      let p
+      for const e of iterable ::
+        p = encode(e[0])
+        if p :: await p
+
+        p = encode(e[1])
+        if p :: await p
+
+
+      add_w0(0xff) // break
+
+
+    async nest(v, u8_pre) ::
+      if ! u8_pre ::
+        u8_pre = this.sub_encode(v)
+      this.nest_u8(await u8_pre)
+

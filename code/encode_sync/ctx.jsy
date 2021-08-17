@@ -1,0 +1,72 @@
+import {ctx_encode_simple} from '../encode_common/ctx.jsy'
+
+export const ctx_encode_sync = @{}
+    __proto__: ctx_encode_simple
+
+    array(arr) ::
+      const {add_int, encode} = this
+      const len = arr.length
+      add_int(0x80, len)
+
+      for let i=0; i<len; i++ ::
+        encode(arr[i])
+
+    list(iterable, count) ::
+      const {add_int, encode} = this
+      add_int(0x80, count)
+
+      for const v of iterable ::
+        encode(v)
+
+        if 0 >= count -- ::
+          return
+
+    list_stream(iterable) ::
+      const {add_w0, encode} = this
+      add_w0(0x9f) // list stream
+
+      for const v of iterable ::
+        encode(v)
+
+      add_w0(0xff) // break
+
+
+    object_pairs(v) ::
+      const {add_int, encode} = this
+      const ns = Object.entries(v)
+      const count = ns.length
+
+      add_int(0xa0, count)
+      for let i=0; i<count; i++ ::
+        const e = ns[i]
+        encode(e[0])
+        encode(e[1])
+
+
+    pairs(iterable, count) ::
+      const {add_int, encode} = this
+      add_int(0xa0, count)
+
+      for const e of iterable ::
+        encode(e[0])
+        encode(e[1])
+
+        if 0 >= count -- ::
+          return
+
+    pair_stream(iterable) ::
+      const {add_w0, encode} = this
+      add_w0(0xbf) // map stream
+
+      for const e of iterable ::
+        encode(e[0])
+        encode(e[1])
+
+      add_w0(0xff) // break
+
+
+    nest(v, u8_pre) ::
+      if ! u8_pre ::
+        u8_pre = this.sub_encode(v)
+      this.nest_u8(u8_pre)
+

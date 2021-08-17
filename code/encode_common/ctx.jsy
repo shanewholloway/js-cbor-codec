@@ -1,0 +1,73 @@
+function _maybe_then(promise, fn) ::
+  return undefined !== promise
+    ? promise.then(fn)
+    : fn()
+
+export const ctx_encode_simple = @{}
+    __proto__: null,
+
+    // FROM bind_encode_dispatch (encode_common/jump.jsy) ::
+    //   encode(v)
+    //   encode_object(v)
+
+    // FROM _bind_encoder_context (encode_common/stream_ctx.jsy) ::
+    //   raw_frame,
+    //   add_w0, add_w1, add_int,
+    //   add_tag, nest_u8,
+    //   add_bytes, add_utf8, add_buffer,
+    //   float16_short, float32 float64
+
+    simple(v) ::
+      // RFC 8949 Simple Values; CBOR Simple Values Registry
+      if v < 24 ::
+        this.add_w0(0xe0 | v)
+      else if v <= 0xff ::
+        this.add_w1(0xf8, v)
+      else throw new Error @ `Invalid simple value: ${v}`
+
+
+    tag_encode(tag, value) ::
+      const end_tag = this.tag(tag)
+      let p = this.encode(value)
+      return _maybe_then(p, end_tag)
+
+    tag_encode_object(tag, value) ::
+      const end_tag = this.tag(tag)
+      let p = this.encode_object(value)
+      return _maybe_then(p, end_tag)
+
+    tag(tag, with_tag) ::
+      this.add_tag(tag)
+      return with_tag || this.host.with_tag(tag)
+
+    sub_encode(v, opt) ::
+      // lazy bind sub_encode on first use
+      let fn = this.sub_encode =
+        this.host._bind_u8ctx()
+      return fn(v, opt)
+
+    bytes_stream(iterable) ::
+      const {add_w0, add_bytes} = this
+      add_w0(0x5f) // bytes stream
+      for const v of iterable ::
+        add_bytes(v)
+      add_w0(0xff) // break
+
+    utf8_stream(iterable) ::
+      const {add_w0, add_utf8} = this
+      add_w0(0x7f) // utf8 stream
+      for const v of iterable ::
+        add_utf8(v)
+      add_w0(0xff) // break
+
+
+    // Subclass implementations:
+
+    // array(arr) ::
+    // list(iterable, count) ::
+    // list_stream(iterable) ::
+    // object_pairs(v) ::
+    // pairs(iterable, count) ::
+    // pair_stream(iterable) ::
+    // nest(v, u8_pre) ::
+

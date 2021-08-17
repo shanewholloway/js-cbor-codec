@@ -9,7 +9,7 @@
     "@rollup/plugin-node-resolve": "^13.0.4",
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
-    "rollup": "^2.56.0",
+    "rollup": "^2.56.2",
     "rollup-plugin-dgnotify": "^0.1.7",
     "rollup-plugin-jsy-lite": "^1.7.2"
   },
