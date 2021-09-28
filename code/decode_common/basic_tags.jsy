@@ -1,4 +1,5 @@
 import { cbor_accum, cbor_nest } from '../sym_cbor.jsy'
+import {is_big_endian, cbor_typed_arrays, swap_endian} from '../typed_arrays.jsy'
 
 export const decode_Map = @{}
   map:
@@ -11,6 +12,12 @@ export const decode_Set = @{}
     cbor_accum @:
       init: () => new Set()
       accum: (res, i, v) => res.add(v)
+
+
+export function std_tags(tags_lut) ::
+  basic_tags(tags_lut)
+  typedarray_tags(tags_lut)
+
 
 export function basic_tags(tags_lut) ::
   // from https://tools.ietf.org/html/rfc7049#section-2.4
@@ -72,4 +79,17 @@ export function basic_tags(tags_lut) ::
   tags_lut.set @ 259, ctx => { ctx.use_overlay(decode_Map) }
 
   return tags_lut
+
+
+export function typedarray_tags(tags_lut) ::
+  let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1]
+  for let ta_args of cbor_typed_arrays ::
+    let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT
+    let as_ta = u8 =>
+      0 === (u8.byteOffset % step) // if aligned, reuse buffer
+        ? new TA_Klass(u8.buffer, u8.byteOffset, u8.byteLength / step)
+        : new TA_Klass(u8.slice().buffer)
+
+    tags_lut.set @ ta_args[i_cpy], ctx => as_ta
+    tags_lut.set @ ta_args[i_swp], ctx => u8 => swap_endian @ as_ta(u8)
 

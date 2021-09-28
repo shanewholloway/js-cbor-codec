@@ -1,0 +1,52 @@
+import {is_big_endian, cbor_typed_arrays, swap_endian} from '../typed_arrays.jsy'
+
+export function std_tag_encoders(add_encoder, host) ::
+  basic_tag_encoders(add_encoder, host)
+  typedarray_tag_encoders(add_encoder, host)
+
+
+export function basic_tag_encoders(add_encoder, host) ::
+  //if ! host.allow_async ::
+  add_encoder @ Promise.resolve(), () => ::
+    throw new Error('Promises not supported for CBOR encoding')
+
+  // tag 1 -- Date
+  add_encoder @ new Date(), (v, ctx) => ::
+    let end_tag = ctx.tag(1)
+    ctx.float64(v / 1000.)
+    end_tag()
+
+  // tag 32 -- URIs
+  add_encoder @ new URL('ws://h'), (v, ctx) => ::
+    let end_tag = ctx.tag(32)
+    ctx.add_utf8(v.toString())
+    end_tag()
+
+  // tag 258 -- Sets (explicit type)
+  add_encoder @ new Set(), (v, ctx) => ::
+    let end_tag = ctx.tag(258)
+    ctx.list(v, v.size)
+    end_tag()
+
+  // tag 259 -- Maps (explicit type)
+  add_encoder @ new Map(), (v, ctx) => ::
+    let end_tag = ctx.tag(259)
+    ctx.pairs(v.entries(), v.size)
+    end_tag()
+
+
+export function typedarray_tag_encoders(add_encoder) ::
+  let ab = new ArrayBuffer(0)
+
+  for let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays ::
+    if 64 === tag_be :: continue // leave Uint8Array encoded directly as bytes
+
+    add_encoder @ new TA_Klass(ab), (v, ctx) => ::
+      if is_big_endian ::
+        // always write as little-endian
+        v = swap_endian @ v.slice()
+
+      let end_tag = ctx.tag(tag_le)
+      ctx.add_bytes(v)
+      end_tag()
+

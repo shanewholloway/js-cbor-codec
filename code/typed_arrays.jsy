@@ -1,0 +1,37 @@
+
+export const is_big_endian = /* #__PURE__ */
+  0 === (new Uint8Array(Uint16Array.of(1).buffer))[0]
+
+export const cbor_typed_arrays = /* #__PURE__ */ @[]
+  //  kind,              big, little
+  @[] Uint8Array,         64, 64
+  @[] Uint16Array,        65, 69
+  @[] Uint32Array,        66, 70
+  //@[] BigUint64Array,   67, 71
+  @[] Uint8ClampedArray,  68, 68
+
+  @[] Int8Array,          72, 72
+  @[] Int16Array,         73, 77
+  @[] Int32Array,         74, 78
+  //@[] BigInt64Array,    75, 79
+
+  //@[] Float16Array,     80, 84
+  @[] Float32Array,       81, 85
+  @[] Float64Array,       82, 86
+  //@[] Float128Array,    83, 87
+
+
+export function swap_endian(v) ::
+  let len=v.byteLength, step=v.BYTES_PER_ELEMENT
+  let u8 = new Uint8Array(v.buffer, v.byteOffset, len)
+
+  // in-place endian swap, byte-width aware
+  let t,i=0,j,k
+  while i < len ::
+    j = i ; k = i + step ; i = k
+    while j < k ::
+      t = u8[j]
+      u8[j++] = u8[--k]
+      u8[k] = t
+
+  return v

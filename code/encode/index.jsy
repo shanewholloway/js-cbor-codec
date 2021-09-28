@@ -1,41 +1,14 @@
 import CBOREncoderBasic from './basic.jsy'
+import {std_tag_encoders} from './basic_tags.jsy'
 
 export * from './jump.jsy'
 export * from './ctx.jsy'
+export * from './basic_tags.jsy'
 
 
 export class CBOREncoder extends CBOREncoderBasic ::
 
-CBOREncoder.prototype.with_encoders(basic_tag_encoders, true)
-
-
-
-export function basic_tag_encoders(add_encoder, host) ::
-  //if ! host.allow_async ::
-  add_encoder @ Promise.resolve(), () => ::
-    throw new Error('Promises not supported for CBOR encoding')
-
-  // tag 1 -- Date
-  add_encoder @ new Date(), (v, ctx) => ::
-    const end_tag = ctx.tag(1)
-    ctx.float64(v / 1000.)
-    end_tag()
-
-  // tag 32 -- URIs
-  add_encoder @ new URL('ws://h'), (v, ctx) => ::
-    const end_tag = ctx.tag(32)
-    ctx.add_utf8(v.toString())
-    end_tag()
-
-  // tag 258 -- Sets (explicit type)
-  add_encoder @ new Set(), (v, ctx) => ::
-    const end_tag = ctx.tag(258)
-    ctx.list(v, v.size)
-    end_tag()
-
-  // tag 259 -- Maps (explicit type)
-  add_encoder @ new Map(), (v, ctx) => ::
-    const end_tag = ctx.tag(259)
-    ctx.pairs(v.entries(), v.size)
-    end_tag()
+CBOREncoder.prototype.with_encoders @
+  std_tag_encoders,
+  true
 

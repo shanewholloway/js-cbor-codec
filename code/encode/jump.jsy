@@ -137,16 +137,11 @@ export function bind_builtin_types(lut_types) ::
 
 
   :: // ArrayBuffer and friends
-    const ab = new ArrayBuffer(0)
+    let ab = new ArrayBuffer(0)
     function encode_bytes(v, ctx) :: ctx.add_bytes(v)
     use_encoder_for @ lut_types, ab, encode_bytes
-
-    for const ArrayDataKlass of @[]
-        Int8Array, Uint8Array, Uint8ClampedArray,
-        Int16Array, Uint16Array, Int32Array, Uint32Array,
-        Float32Array, Float64Array, DataView ::
-
-      use_encoder_for @ lut_types, new ArrayDataKlass(ab), encode_bytes
+    use_encoder_for @ lut_types, new DataView(ab), encode_bytes
+    use_encoder_for @ lut_types, new Uint8Array(ab), encode_bytes
 
   return lut_types
 
