@@ -36,8 +36,9 @@ export function basic_tag_encoders(add_encoder, host) ::
 
 
 export function typedarray_tag_encoders(add_encoder) ::
-  let ab = new ArrayBuffer(0)
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
+  let ab = new ArrayBuffer(0)
   for let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays ::
     if 64 === tag_be :: continue // leave Uint8Array encoded directly as bytes
 

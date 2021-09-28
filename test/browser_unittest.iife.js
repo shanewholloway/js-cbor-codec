@@ -1,10 +1,10 @@
 (function () {
   'use strict';
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  const _lut_u8hex = Array.from(Array(256),
+  const _lut_u8hex = /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_hex(u8, sep) {
@@ -22,7 +22,7 @@
     return sep.length ? s.slice(0, -sep.length) : s}
 
 
-  const _lut_hexu8 ={
+  const _lut_hexu8 = {
     0: 0x0, 1: 0x1, 2: 0x2, 3: 0x3, 4: 0x4, 5: 0x5, 6: 0x6, 7: 0x7, 8: 0x8, 9: 0x9,
     a: 0xa, b: 0xb, c: 0xc, d: 0xd, e: 0xe, f: 0xf,
     A: 0xa, B: 0xb, C: 0xc, D: 0xd, E: 0xe, F: 0xf,};
@@ -38,10 +38,10 @@
       u8[i++] = (_lut_hexu8[hex[j]] << 4) | _lut_hexu8[hex[j+1]];}
     return u8}
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function utf8_to_u8$2(utf8) {
@@ -541,6 +541,8 @@
   CBOREncoderBasic$2.prototype._encoder_map = new Map();
   function noop$2() {}
 
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   const is_big_endian$4 = 
     0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
 
@@ -614,8 +616,9 @@
 
 
   function typedarray_tag_encoders$2(add_encoder) {
-    let ab = new ArrayBuffer(0);
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
+    let ab = new ArrayBuffer(0);
     for (let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays$4) {
       if (64 === tag_be) {continue }// leave Uint8Array encoded directly as bytes
 
@@ -688,10 +691,10 @@
         this.types, this.jmp, options.unknown);
       return this} }
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8$2(u8) {
@@ -819,6 +822,8 @@
   function _res_push$2(res,i,v) {res.push(v);}
   function _res_attr$2(res,k,v) {res[k] = v;}
 
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   const is_big_endian$3 = 
     0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
 
@@ -937,6 +942,8 @@
 
 
   function typedarray_tags$2(tags_lut) {
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
     let [i_cpy, i_swp] = is_big_endian$3 ? [1, 2] : [2, 1];
     for (let ta_args of cbor_typed_arrays$3) {
       let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT;
@@ -1973,10 +1980,10 @@
         "Fun": true
       , "Amt": -2} } ];
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function utf8_to_u8$1(utf8) {
@@ -2476,6 +2483,8 @@
   CBOREncoderBasic$1.prototype._encoder_map = new Map();
   function noop$1() {}
 
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   const is_big_endian$2 = 
     0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
 
@@ -2549,8 +2558,9 @@
 
 
   function typedarray_tag_encoders$1(add_encoder) {
-    let ab = new ArrayBuffer(0);
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
+    let ab = new ArrayBuffer(0);
     for (let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays$2) {
       if (64 === tag_be) {continue }// leave Uint8Array encoded directly as bytes
 
@@ -2940,10 +2950,10 @@
 
       return u8 =>({__proto__: self, u8}) } };
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8$1(u8) {
@@ -3449,6 +3459,8 @@
   CBOREncoderBasic.prototype._encoder_map = new Map();
   function noop() {}
 
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   const is_big_endian$1 = 
     0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
 
@@ -3522,8 +3534,9 @@
 
 
   function typedarray_tag_encoders(add_encoder) {
-    let ab = new ArrayBuffer(0);
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
+    let ab = new ArrayBuffer(0);
     for (let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays$1) {
       if (64 === tag_be) {continue }// leave Uint8Array encoded directly as bytes
 
@@ -3714,6 +3727,8 @@
 
 
   function typedarray_tags$1(tags_lut) {
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
     let [i_cpy, i_swp] = is_big_endian$1 ? [1, 2] : [2, 1];
     for (let ta_args of cbor_typed_arrays$1) {
       let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT;
@@ -4519,10 +4534,10 @@
         this.types, this.jmp, options.unknown);
       return this} }
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
 
-  Array.from(Array(256),
+  /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(16).padStart(2, '0'));
 
   function u8_to_utf8(u8) {
@@ -4653,6 +4668,8 @@
   function _res_push(res,i,v) {res.push(v);}
   function _res_attr(res,k,v) {res[k] = v;}
 
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   const is_big_endian = 
     0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
 
@@ -4771,6 +4788,8 @@
 
 
   function typedarray_tags(tags_lut) {
+    // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
     let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1];
     for (let ta_args of cbor_typed_arrays) {
       let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT;
@@ -5518,4 +5537,4 @@
       assert.equal(known_hex, actual);
       return true} }
 
-}());
+})();

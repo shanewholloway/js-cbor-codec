@@ -6,18 +6,17 @@
   },
   "devDependencies": {
     "@petamoriken/float16": "^2.0.0",
-    "@rollup/plugin-node-resolve": "^13.0.4",
+    "@rollup/plugin-node-resolve": "^13.0.5",
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
     "rollup": "^2.56.0",
     "rollup-plugin-dgnotify": "^0.1.7",
-    "rollup-plugin-jsy-lite": "^1.7.2"
+    "rollup-plugin-jsy": "^1.7.2"
   },
   "scripts": {
-    "prebuild": "test -d ./node_modules || npm ci",
     "clean": "rm ./mocha_unittest.cjs.js browser_unittest.iife.js",
     "build": "rollup --config",
-    "watch": "npm -s run build -- --watch",
+    "watch": "rollup --config --watch",
     "pretest": "npm -s run build",
     "test": "npm -s run test:one",
     "test:one": "mocha ./mocha_unittest.cjs.js",

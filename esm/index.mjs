@@ -37,10 +37,10 @@ const cbor_nest ={
 
     return u8 =>({__proto__: self, u8}) } };
 
-Array.from(Array(256),
+/* #__PURE__ */ Array.from(Array(256),
   (_, v) => v.toString(2).padStart(8, '0'));
 
-const _lut_u8hex = Array.from(Array(256),
+const _lut_u8hex = /* #__PURE__ */ Array.from(Array(256),
   (_, v) => v.toString(16).padStart(2, '0'));
 
 function u8_to_hex(u8, sep) {
@@ -58,7 +58,7 @@ function u8_to_hex(u8, sep) {
   return sep.length ? s.slice(0, -sep.length) : s}
 
 
-const _lut_hexu8 ={
+const _lut_hexu8 = {
   0: 0x0, 1: 0x1, 2: 0x2, 3: 0x3, 4: 0x4, 5: 0x5, 6: 0x6, 7: 0x7, 8: 0x8, 9: 0x9,
   a: 0xa, b: 0xb, c: 0xc, d: 0xd, e: 0xe, f: 0xf,
   A: 0xa, B: 0xb, C: 0xc, D: 0xd, E: 0xe, F: 0xf,};
@@ -125,7 +125,7 @@ function bind_encode_dispatch(ctx, api) {
   api.rebind = rebind;
   return
 
-  function rebind(host) {
+  function rebind(host=ctx.host) {
     Object.defineProperties(ctx,{
       host: {value: host}} );
 
@@ -144,7 +144,9 @@ function bind_encode_dispatch(ctx, api) {
 
     if (encode_object) {
       lut_types.set(_obj_kind_({}), encode_object); }
-    else encode_object = lut_types.get(_obj_kind_({})); }
+    else encode_object = lut_types.get(_obj_kind_({}));
+
+    return api }// as fluent API
 
 
   function encode(v) {
@@ -162,16 +164,14 @@ function bind_encode_dispatch(ctx, api) {
         return} }
 
     if (undefined !== v.to_cbor_encode) {
-      v.to_cbor_encode(ctx, v);
-      return}
+      return v.to_cbor_encode(ctx, v) }// pass through promises
 
     let encoder = lut_types.get(_obj_kind_(v));
     if (undefined !== encoder) {
-      encoder(v, ctx);
-      return}
+      return encoder(v, ctx) }// pass through promises
 
     // not '[object Object]', but also not handled explicitly. (e.g. [object Date])
-    encode_object(v, ctx);} }
+    return encode_object(v, ctx) } }// pass through promises
 
 
 
@@ -248,16 +248,11 @@ function bind_builtin_types(lut_types) {
 
 
    {// ArrayBuffer and friends
-    const ab = new ArrayBuffer(0);
+    let ab = new ArrayBuffer(0);
     function encode_bytes(v, ctx) {ctx.add_bytes(v);}
     use_encoder_for(lut_types, ab, encode_bytes);
-
-    for (const ArrayDataKlass of [
-        Int8Array, Uint8Array, Uint8ClampedArray,
-        Int16Array, Uint16Array, Int32Array, Uint32Array,
-        Float32Array, Float64Array, DataView] ) {
-
-      use_encoder_for(lut_types, new ArrayDataKlass(ab), encode_bytes); } }
+    use_encoder_for(lut_types, new DataView(ab), encode_bytes);
+    use_encoder_for(lut_types, new Uint8Array(ab), encode_bytes); }
 
   return lut_types}
 
@@ -300,11 +295,17 @@ function bind_ctx_prototype() {
       this.add_int(0xc0, tag);
       return with_tag || this.host.with_tag(tag)}
 
-  , nest(v, u8) {
-      if (! u8) {
-        u8 = this.cbor_encode(v);}
+  , sub_encode(v, opt) {
+      // lazy bind sub_encode on first use
+      let fn = this.sub_encode =
+        bind_encoder_context()
+          .rebind(this.host);
+      return fn(v, opt)}
+
+  , nest(v, u8_pre) {
       const end_tag = this.tag(24);
-      this.add_buffer(0x40, u8);
+      this.add_buffer(0x40,
+        u8_pre || this.sub_encode(v));
       return end_tag()}
 
   , bytes_stream(iterable) {
@@ -399,7 +400,6 @@ function bind_encoder_context(stream) {
   const ctx ={
     __proto__: ctx_prototype
   , raw_frame
-  , cbor_encode
 
   , add_w0(bkind) {
       next_frame(bkind, 1);}
@@ -577,36 +577,101 @@ class CBOREncoderBasic {
 CBOREncoderBasic.prototype._encoder_map = new Map();
 function noop() {}
 
-class CBOREncoder extends CBOREncoderBasic {}
+// for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
-CBOREncoder.prototype.with_encoders(basic_tag_encoders, true);
+const is_big_endian = 
+  0 === (new Uint8Array(Uint16Array.of(1).buffer))[0];
+
+const cbor_typed_arrays = [
+  //  kind,              big, little
+  [Uint8Array,         64, 64]
+, [Uint16Array,        65, 69]
+, [Uint32Array,        66, 70]
+, //@[] BigUint64Array,   67, 71
+  [Uint8ClampedArray,  68, 68]
+
+, [Int8Array,          72, 72]
+, [Int16Array,         73, 77]
+, [Int32Array,         74, 78]
+, //@[] BigInt64Array,    75, 79
+
+  //@[] Float16Array,     80, 84
+  [Float32Array,       81, 85]
+, [Float64Array,       82, 86]
+, ];//@[] Float128Array,    83, 87
 
 
+function swap_endian(v) {
+  let len=v.byteLength, step=v.BYTES_PER_ELEMENT;
+  let u8 = new Uint8Array(v.buffer, v.byteOffset, len);
 
-function basic_tag_encoders(add_encoder) {
+  // in-place endian swap, byte-width aware
+  let t,i=0,j,k;
+  while (i < len) {
+    j = i ; k = i + step ; i = k;
+    while (j < k) {
+      t = u8[j];
+      u8[j++] = u8[--k];
+      u8[k] = t;} }
+
+  return v}
+
+function std_tag_encoders(add_encoder, host) {
+  basic_tag_encoders(add_encoder);
+  typedarray_tag_encoders(add_encoder);}
+
+
+function basic_tag_encoders(add_encoder, host) {
+  //if ! host.allow_async ::
+  add_encoder(Promise.resolve(), () => {
+    throw new Error('Promises not supported for CBOR encoding')} );
+
   // tag 1 -- Date
   add_encoder(new Date(), (v, ctx) => {
-    const end_tag = ctx.tag(1);
+    let end_tag = ctx.tag(1);
     ctx.float64(v / 1000.);
     end_tag();} );
 
   // tag 32 -- URIs
   add_encoder(new URL('ws://h'), (v, ctx) => {
-    const end_tag = ctx.tag(32);
+    let end_tag = ctx.tag(32);
     ctx.add_utf8(v.toString());
     end_tag();} );
 
   // tag 258 -- Sets (explicit type)
   add_encoder(new Set(), (v, ctx) => {
-    const end_tag = ctx.tag(258);
+    let end_tag = ctx.tag(258);
     ctx.list(v, v.size);
     end_tag();} );
 
   // tag 259 -- Maps (explicit type)
   add_encoder(new Map(), (v, ctx) => {
-    const end_tag = ctx.tag(259);
+    let end_tag = ctx.tag(259);
     ctx.pairs(v.entries(), v.size);
     end_tag();} ); }
+
+
+function typedarray_tag_encoders(add_encoder) {
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
+  let ab = new ArrayBuffer(0);
+  for (let [TA_Klass, tag_be, tag_le] of cbor_typed_arrays) {
+    if (64 === tag_be) {continue }// leave Uint8Array encoded directly as bytes
+
+    add_encoder(new TA_Klass(ab), (v, ctx) => {
+      if (is_big_endian) {
+        // always write as little-endian
+        v = swap_endian(v.slice()); }
+
+      let end_tag = ctx.tag(tag_le);
+      ctx.add_bytes(v);
+      end_tag();} ); } }
+
+class CBOREncoder extends CBOREncoderBasic {}
+
+CBOREncoder.prototype.with_encoders(
+  std_tag_encoders,
+  true);
 
 const {encode, encode_stream} = CBOREncoder;
 
@@ -711,6 +776,12 @@ const decode_Set ={
       init: () => new Set()
     , accum: (res, i, v) => res.add(v)}) };
 
+
+function std_tags(tags_lut) {
+  basic_tags(tags_lut);
+  typedarray_tags(tags_lut);}
+
+
 function basic_tags(tags_lut) {
   // from https://tools.ietf.org/html/rfc7049#section-2.4
 
@@ -771,6 +842,21 @@ function basic_tags(tags_lut) {
   tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); });
 
   return tags_lut}
+
+
+function typedarray_tags(tags_lut) {
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
+  let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1];
+  for (let ta_args of cbor_typed_arrays) {
+    let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT;
+    let as_ta = u8 =>
+      0 === (u8.byteOffset % step) // if aligned, reuse buffer
+        ? new TA_Klass(u8.buffer, u8.byteOffset, u8.byteLength / step)
+        : new TA_Klass(u8.slice().buffer);
+
+    tags_lut.set(ta_args[i_cpy], ctx => as_ta);
+    tags_lut.set(ta_args[i_swp], ctx => u8 => swap_endian(as_ta(u8))); } }
 
 class U8DecodeBaseCtx {
 
@@ -1017,7 +1103,7 @@ const _cbor_jmp_base ={
       let tip = q.pop();
 
       if (true === tip) {
-        tip = basic_tags;}
+        tip = std_tags;}
 
       if (Array.isArray(tip)) {
         q.push(... tip);}
@@ -1432,5 +1518,5 @@ CBORAsyncDecoder.compile({
 
 const {decode_stream, aiter_decode_stream} = new CBORAsyncDecoder();
 
-export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_accum, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_nest, cbor_tag, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
+export { CBORAsyncDecoder, CBORAsyncDecoderBasic, CBORDecoder, CBORDecoderBase, CBORDecoderBasic, CBOREncoder, CBOREncoderBasic, _cbor_jmp_async, _cbor_jmp_base, _cbor_jmp_sync, aiter_decode_stream, aiter_outstream, as_u8_buffer, basic_tag_encoders, basic_tags, bind_builtin_types, bind_encode_dispatch, bind_encoder_context, cbor_accum, aiter_decode_stream as cbor_aiter_decode_stream, cbor_break_sym, decode as cbor_decode, decode_stream as cbor_decode_stream, cbor_done_sym, encode as cbor_encode, encode_stream as cbor_encode_stream, cbor_eoc_sym, iter_decode as cbor_iter_decode, cbor_nest, cbor_tag, decode, decode_Map, decode_Set, decode_stream, decode_types, encode, encode_stream, hex_to_u8, iter_decode, std_tag_encoders, std_tags, typedarray_tag_encoders, typedarray_tags, u8_as_stream, u8_concat, u8_to_hex, u8_to_utf8, u8concat_outstream, use_encoder_for, utf8_to_u8 };
 //# sourceMappingURL=index.mjs.map

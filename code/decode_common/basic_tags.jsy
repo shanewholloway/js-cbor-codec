@@ -82,6 +82,8 @@ export function basic_tags(tags_lut) ::
 
 
 export function typedarray_tags(tags_lut) ::
+  // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
+
   let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1]
   for let ta_args of cbor_typed_arrays ::
     let TA_Klass = ta_args[0], step=TA_Klass.BYTES_PER_ELEMENT

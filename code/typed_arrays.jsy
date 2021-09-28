@@ -1,3 +1,4 @@
+// for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
 export const is_big_endian = /* #__PURE__ */
   0 === (new Uint8Array(Uint16Array.of(1).buffer))[0]
