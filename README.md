@@ -1,5 +1,7 @@
 # CBOR Codec
 
+[![Node.js CI](https://github.com/shanewholloway/js-cbor-codec/actions/workflows/node-ci.yml/badge.svg)](https://github.com/shanewholloway/js-cbor-codec/actions/workflows/node-ci.yml)
+
 CBOR Codec for NodeJS and the Web.
 
 [CBOR-259 explicit maps](./docs/CBOR-259-spec--explicit-maps.md)
