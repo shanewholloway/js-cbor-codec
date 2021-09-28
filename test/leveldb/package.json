@@ -13,6 +13,7 @@
     "tape": "^5.2.2"
   },
   "scripts": {
+    "pretest": "test -d ./node_modules || npm ci",
     "test": "node test-leveldown.js"
   }
 }

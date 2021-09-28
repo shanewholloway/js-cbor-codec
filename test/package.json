@@ -15,6 +15,7 @@
   },
   "scripts": {
     "clean": "rm ./mocha_unittest.cjs.js browser_unittest.iife.js",
+    "prebuild": "test -d ./node_modules || npm ci",
     "build": "rollup --config",
     "watch": "rollup --config --watch",
     "pretest": "npm -s run build",
