@@ -6,6 +6,7 @@ import { terser as rpi_terser } from 'rollup-plugin-terser'
 import pkg from './package.json'
 const pkg_name = pkg.name.replace('-', '_')
 
+const external = id => /^\w+:/.test(id)
 const plugins = [
   rpi_dgnotify(),
   rpi_jsy(),
@@ -40,7 +41,7 @@ function * add_jsy(src_name, opt={}) {
 
   yield {
     input: `code/${src_name}.jsy`,
-    plugins, external: [],
+    plugins, external,
     output: [
       { file: `esm/${src_name}.mjs`, format: 'es', sourcemap: true },
       { file: `cjs/${src_name}.cjs`, format: 'cjs', exports:'named', sourcemap: true },
@@ -50,7 +51,7 @@ function * add_jsy(src_name, opt={}) {
   if (plugins_min)
     yield {
       input: `code/${src_name}.jsy`,
-      plugins: plugins_min, external: [],
+      plugins: plugins_min, external,
       output: [
         { file: `esm/${src_name}.min.mjs`, format: 'es' },
         { file: `umd/${src_name}.min.js`, format: 'umd', name:module_name, exports:'named' },
