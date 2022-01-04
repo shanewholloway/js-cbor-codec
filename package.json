@@ -1,6 +1,6 @@
 {
   "name": "cbor-codec",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "CBOR Codec for NodeJS and the Web",
   "license": "BSD-2-Clause",
   "author": "Shane Holloway <shane.holloway@ieee.org>",
