@@ -103,14 +103,16 @@ export const _cbor_jmp_sync = @{}
       throw new TypeError @ 'Expected a tags Map'
 
     return function(ctx, tag) ::
-      const tag_handler = tags_lut.get(tag)
-      if tag_handler ::
-        let res = tag_handler(ctx, tag)
-        if 'object' === typeof res ::
-          return res.custom_tag(ctx, tag)
+      let tag_handler = tags_lut.get(tag)
+      if ! tag_handler ::
+        return cbor_tag.from(tag, ctx.next_value())
 
-        const body = ctx.next_value()
-        return undefined === res ? body : res(body)
+      let hdlr = tag_handler(ctx, tag)
+      let body = ctx.next_value()
 
-      return cbor_tag.from(tag, ctx.next_value())
+      if ! hdlr ::
+        return body
+      if hdlr.custom_tag ::
+        return hdlr.custom_tag(ctx, tag, body)
+      return hdlr(body)
 
