@@ -82,7 +82,8 @@ function utf8_to_u8(utf8) {
 
 'undefined' !== typeof crypto
     ? crypto.getRandomValues.bind(crypto)
-    : import('node:crypto').then(m => m.randomFillSync);
+    : import('node:crypto'.trim()) // avoid static compiler
+        .then(m => m.randomFillSync);
 
 function as_u8_buffer(u8) {
   

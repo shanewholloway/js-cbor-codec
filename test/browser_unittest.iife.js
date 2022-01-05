@@ -40,7 +40,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   /* #__PURE__ */ Array.from(Array(256),
     (_, v) => v.toString(2).padStart(8, '0'));
@@ -53,7 +54,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   function as_u8_buffer$4(u8) {
     
@@ -710,7 +712,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   function as_u8_buffer$3(u8) {
     
@@ -2005,7 +2008,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   function as_u8_buffer$2(u8) {
     
@@ -2982,7 +2986,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   function as_u8_buffer$1(u8) {
     
@@ -4571,7 +4576,8 @@
 
   'undefined' !== typeof crypto
       ? crypto.getRandomValues.bind(crypto)
-      : import('node:crypto').then(m => m.randomFillSync);
+      : import('node:crypto'.trim()) // avoid static compiler
+          .then(m => m.randomFillSync);
 
   function as_u8_buffer(u8) {
     
