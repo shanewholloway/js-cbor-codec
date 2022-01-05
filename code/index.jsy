@@ -1,14 +1,20 @@
 export * from './sym_cbor.jsy'
 export * from './encode/basic.jsy'
 export * from './encode/index.jsy'
+import { cbor_encode } from './encode.jsy'
 export { encode, cbor_encode } from './encode.jsy'
 export { encode_stream, cbor_encode_stream } from './encode.jsy'
 
 
 export * from './decode_common/index.jsy'
 
+import { cbor_decode } from './decode.jsy'
 export * from './decode.jsy'
 export * from './decode_async.jsy'
 
 export * from './u8_utils.jsy'
 
+export const u8_cbor_codec = {
+  encode: obj => cbor_encode(obj),
+  decode: u8 => cbor_decode(u8),
+}
