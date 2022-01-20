@@ -1,19 +1,16 @@
 import { utf8_to_u8, as_u8_buffer, u8_concat } from '../u8_utils.jsy'
 import { bind_encode_dispatch } from './jump.jsy'
 
-const W0=0, W1=24, W2=25, W4=26, W8=27 
+const W0=0, W1=24, W2=25, W4=26, W8=27
 
-const ctx_prototype = bind_ctx_prototype()
-
-function bind_ctx_prototype() ::
-  return @{}
+const ctx_prototype = /* #__PURE__ */ @{}
     __proto__: null,
 
     // encode(v) -- installed in bind_encode_dispatch (./jump.jsy)
     // encode_object(v) -- installed in bind_encode_dispatch (./jump.jsy)
 
     // raw_frame,
-    // add_w0, add_w1, add_int,
+    // add_w0, add_w1, add_mask, add_int,
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
 
@@ -26,19 +23,26 @@ function bind_ctx_prototype() ::
       else throw new Error @ `Invalid simple value: ${v}`
 
     tag_encode(tag, value) ::
-      const end_tag = this.tag(tag)
+      let end_tag = this.tag(tag)
       this.encode(value)
       return end_tag()
 
     tag_encode_object(tag, value) ::
-      const end_tag = this.tag(tag)
+      let end_tag = this.tag(tag)
       this.encode_object(value)
       return end_tag()
 
     tag(tag, with_tag) ::
       if true === tag :: tag = 0xd9f7 // CBOR tag
-      this.add_int(0xc0, tag)
+      this.add_mask(0xc0, tag)
       return with_tag || this.host.with_tag(tag)
+
+    add_int(v) ::
+      if ! Number.isSafeInteger(v) ::
+        throw new TypeError()
+      if v > 0 :: this.add_mask(0x00, v) // pos int
+      else if v < 0 :: this.add_mask(0x20, -1 - v) // neg int
+      else :: this.add_w0(0) // int zero
 
     sub_encode(v, opt) ::
       // lazy bind sub_encode on first use
@@ -48,71 +52,71 @@ function bind_ctx_prototype() ::
       return fn(v, opt)
 
     nest(v, u8_pre) ::
-      const end_tag = this.tag(24)
+      let end_tag = this.tag(24)
       this.add_buffer @ 0x40,
         u8_pre || this.sub_encode(v)
       return end_tag()
 
     bytes_stream(iterable) ::
-      const {add_w0, add_bytes} = this
+      let {add_w0, add_bytes} = this
       add_w0(0x5f) // bytes stream
-      for const v of iterable ::
+      for let v of iterable ::
         add_bytes(v)
       add_w0(0xff) // break
 
     utf8_stream(iterable) ::
-      const {add_w0, add_utf8} = this
+      let {add_w0, add_utf8} = this
       add_w0(0x7f) // utf8 stream
-      for const v of iterable ::
+      for let v of iterable ::
         add_utf8(v)
       add_w0(0xff) // break
 
 
     array(arr) ::
-      const {add_int, encode} = this
-      const len = arr.length
-      add_int(0x80, len)
+      let {add_mask, encode} = this
+      let len = arr.length
+      add_mask(0x80, len)
 
       for let i=0; i<len; i++ ::
         encode(arr[i])
 
     list(iterable, count) ::
-      const {add_int, encode} = this
-      add_int(0x80, count)
+      let {add_mask, encode} = this
+      add_mask(0x80, count)
 
-      for const v of iterable ::
+      for let v of iterable ::
         encode(v)
 
         if 0 >= count -- ::
           return
 
     list_stream(iterable) ::
-      const {add_w0, encode} = this
+      let {add_w0, encode} = this
       add_w0(0x9f) // list stream
 
-      for const v of iterable ::
+      for let v of iterable ::
         encode(v)
 
       add_w0(0xff) // break
 
 
     object_pairs(v) ::
-      const {add_int, encode} = this
-      const ns = Object.entries(v)
-      const count = ns.length
+      let {add_mask, encode} = this
+      let ns = Object.entries(v)
+      let count = ns.length
 
-      add_int(0xa0, count)
+      add_mask(0xa0, count)
       for let i=0; i<count; i++ ::
-        const e = ns[i]
+        let e = ns[i]
         encode(e[0])
         encode(e[1])
 
 
     pairs(iterable, count) ::
-      const {add_int, encode} = this
-      add_int(0xa0, count)
+      let {add_mask, encode} = this
+      add_mask(0xa0, count)
 
-      for const e of iterable ::
+      for let e of iterable ::
         encode(e[0])
         encode(e[1])
 
@@ -120,10 +124,10 @@ function bind_ctx_prototype() ::
           return
 
     pair_stream(iterable) ::
-      const {add_w0, encode} = this
+      let {add_w0, encode} = this
       add_w0(0xbf) // map stream
 
-      for const e of iterable ::
+      for let e of iterable ::
         encode(e[0])
         encode(e[1])
 
@@ -144,6 +148,7 @@ export function bind_encoder_context(stream) ::
 
   const ctx = @{}
     __proto__: ctx_prototype
+
     raw_frame
 
     add_w0(bkind) ::
@@ -152,7 +157,7 @@ export function bind_encoder_context(stream) ::
     add_w1(bkind, v8) ::
       u8_tip[ next_frame(bkind, 2) ] = v8
 
-    add_int
+    add_mask
     add_bytes
     add_utf8
     add_buffer
@@ -182,14 +187,14 @@ export function bind_encoder_context(stream) ::
     if idx_next === 0 ::
       return stream.flush(null)
 
-    const blk = u8_tip.slice(0, idx_next)
+    let blk = u8_tip.slice(0, idx_next)
     idx_frame = idx_next = 0
     return stream.flush(blk)
 
 
 
 
-  function add_int(mask, v) ::
+  function add_mask(mask, v) ::
     if v <= 0xffff ::
       if v < 24 :: // tiny
         next_frame(mask | v, 1)
@@ -204,12 +209,12 @@ export function bind_encoder_context(stream) ::
       dv_tip.setUint32 @ next_frame(mask | W4, 5), v
 
     else ::
-      const idx = next_frame(mask | W8, 9)
+      let idx = next_frame(mask | W8, 9)
 
-      const v_hi = (v / 0x100000000) | 0
+      let v_hi = (v / 0x100000000) | 0
       dv_tip.setUint32(idx, v_hi)
 
-      const v_lo = v & 0xffffffff
+      let v_lo = v & 0xffffffff
       dv_tip.setUint32(4+idx, v_lo)
       return
 
@@ -220,7 +225,7 @@ export function bind_encoder_context(stream) ::
     add_buffer @ 0x60, utf8_to_u8(v)
 
   function add_buffer(mask, buf) ::
-    add_int @ mask, buf.byteLength
+    add_mask @ mask, buf.byteLength
     raw_frame(buf)
 
 
@@ -238,7 +243,7 @@ export function bind_encoder_context(stream) ::
 
 
   function raw_frame(buf) ::
-    const len = buf.byteLength
+    let len = buf.byteLength
     idx_frame = idx_next; idx_next += len
     if idx_next <= block_size ::
       u8_tip.set(buf, idx_frame)
@@ -251,7 +256,6 @@ export function bind_encoder_context(stream) ::
     stream.write @ buf
 
 
-
 export function u8concat_outstream() ::
   let blocks = []
   return @{}
@@ -262,7 +266,7 @@ export function u8concat_outstream() ::
 
       if null !== blk ::
         blocks.push(blk)
-      const u8 = u8_concat(blocks)
+      let u8 = u8_concat(blocks)
       blocks = []
       return u8
 

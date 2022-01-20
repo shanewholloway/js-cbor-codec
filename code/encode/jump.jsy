@@ -105,11 +105,11 @@ function encode_number(v, ctx) ::
 
   else if v > 0 ::
     // pos int
-    ctx.add_int(0x00, v)
+    ctx.add_mask(0x00, v)
 
   else if v < 0 ::
     // neg int
-    ctx.add_int(0x20, -1 - v)
+    ctx.add_mask(0x20, -1 - v)
 
   else if Object.is(-0, v) ::
     // negative zero; does not play well with identity or Map() lookup
