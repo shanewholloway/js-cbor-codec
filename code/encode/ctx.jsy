@@ -14,6 +14,8 @@ const ctx_prototype = /* #__PURE__ */ @{}
     // add_bytes, add_utf8, add_buffer,
     // float16_short, float32 float64
 
+    invalid() :: this.add_w0(0xf7)
+
     simple(v) ::
       // RFC 8949 Simple Values; CBOR Simple Values Registry
       if v < 24 ::
@@ -100,9 +102,13 @@ const ctx_prototype = /* #__PURE__ */ @{}
       add_w0(0xff) // break
 
 
+    _object_filter(e) ::
+      let t = typeof e[1]
+      return 'function' !== t && 'symbol' !== t
+
     object_pairs(v) ::
       let {add_mask, encode} = this
-      let ns = Object.entries(v)
+      let ns = Object.entries(v).filter(this._object_filter)
       let count = ns.length
 
       add_mask(0xa0, count)

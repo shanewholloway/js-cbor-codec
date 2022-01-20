@@ -139,8 +139,8 @@ export function bind_builtin_types(lut_types) ::
   use_encoder_for @ lut_types, [], (v, ctx) => :: ctx.array(v)
   use_encoder_for @ lut_types, {}, (v, ctx) => :: ctx.object_pairs(v)
 
-  use_encoder_for @ lut_types, parseInt, @=> ::
-  use_encoder_for @ lut_types, Symbol.iterator, @=> ::
+  use_encoder_for @ lut_types, parseInt, @:: ctx.invalid('function')
+  use_encoder_for @ lut_types, Symbol.iterator, @:: ctx.invalid('symbol')
 
 
   :: // ArrayBuffer and friends
