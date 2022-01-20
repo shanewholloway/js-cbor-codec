@@ -87,20 +87,22 @@
   const _obj_kind_$2 = Function.call.bind(Object.prototype.toString);
   // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
 
-  function bind_encode_dispatch$2(ctx, api) {
+  function bind_encode_dispatch$2(ctx0, api) {
+    let active_enc = new WeakSet();
     let simple_map, encode_object, lut_types;
 
-    ctx.encode = encode;
-    ctx.encode_object = v => encode_object(v, ctx);
-
-    // rebind() binds the following: 
+    // rebind() binds the following:
     //   - simple_map, encode_object, lut_types
     //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
     api.rebind = rebind;
-    return
 
-    function rebind(host=ctx.host) {
-      Object.defineProperties(ctx,{
+    return ctx => {
+      ctx.encode = v => encode(v, ctx);
+      ctx.encode_object = v => encode_object(v, ctx);}
+
+    function rebind(host=ctx0.host) {
+      active_enc = new WeakSet();
+      Object.defineProperties(ctx0,{
         host: {value: host}} );
 
       simple_map = host._simple_map;
@@ -111,7 +113,7 @@
           lut_types.set(k, fn); } }
 
       if (host.bind_encode_object) {
-        encode_object = host.bind_encode_object(ctx, lut_types);}
+        encode_object = host.bind_encode_object(ctx0, lut_types);}
 
       else if (host.encode_object) {
         encode_object = host.encode_object;}
@@ -122,8 +124,7 @@
 
       return api }// as fluent API
 
-
-    function encode(v) {
+    function encode(v, ctx) {
       // Lookup table for well-known values directly to CBOR zero-width encodings
       let ev = lut_fast_w0$2.get(v);
       if (undefined !== ev) {
@@ -138,7 +139,12 @@
           return} }
 
       if (undefined !== v.to_cbor_encode) {
-        return v.to_cbor_encode(ctx, v) }// pass through promises
+        if (! active_enc.has(v)) {
+          active_enc.add(v);
+          try {return v.to_cbor_encode(ctx, v)}
+          finally {active_enc.delete(v);} }
+        }// else self-loop -- fall through to default below
+
 
       let encoder = lut_types.get(_obj_kind_$2(v));
       if (undefined !== encoder) {
@@ -183,11 +189,11 @@
 
     else if (v > 0) {
       // pos int
-      ctx.add_int(0x00, v);}
+      ctx.add_mask(0x00, v);}
 
     else if (v < 0) {
       // neg int
-      ctx.add_int(0x20, -1 - v);}
+      ctx.add_mask(0x20, -1 - v);}
 
     else if (Object.is(-0, v)) {
       // negative zero; does not play well with identity or Map() lookup
@@ -217,8 +223,8 @@
     use_encoder_for$2(lut_types, [], (v, ctx) => {ctx.array(v);} );
     use_encoder_for$2(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    use_encoder_for$2(lut_types, parseInt, (() => {} ) );
-    use_encoder_for$2(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for$2(lut_types, parseInt, (() => {ctx.invalid('function');}));
+    use_encoder_for$2(lut_types, Symbol.iterator, (() => {ctx.invalid('symbol');}));
 
 
      {// ArrayBuffer and friends
@@ -230,23 +236,22 @@
 
     return lut_types}
 
-  const W1$2=24, W2$2=25, W4$2=26, W8$2=27; 
+  const W1$2=24, W2$2=25, W4$2=26, W8$2=27;
 
-  const ctx_prototype$2 = bind_ctx_prototype$2();
-
-  function bind_ctx_prototype$2() {
-    return {
+  const ctx_prototype$2 = {
       __proto__: null,
 
       // encode(v) -- installed in bind_encode_dispatch (./jump.jsy)
       // encode_object(v) -- installed in bind_encode_dispatch (./jump.jsy)
 
       // raw_frame,
-      // add_w0, add_w1, add_int,
+      // add_w0, add_w1, add_mask, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      simple(v) {
+      invalid() {this.add_w0(0xf7);}
+
+    , simple(v) {
         // RFC 8949 Simple Values; CBOR Simple Values Registry
         if (v < 24) {
           this.add_w0(0xe0 | v);}
@@ -255,19 +260,57 @@
         else throw new Error(`Invalid simple value: ${v}`) }
 
     , tag_encode(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
     , tag_encode_object(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode_object(value);
         return end_tag()}
 
     , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7; }// CBOR tag
-        this.add_int(0xc0, tag);
+        this.add_mask(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+
+    , shared_tag(obj_key) {
+        let refs = this._ref_wm;
+        if (undefined === refs) {
+          (this._ref_wm = refs = new WeakMap()).n=0;}
+
+        let ref_id = refs.get(obj_key);
+        if (undefined === ref_id) {
+          // new reference
+          ref_id = refs.n++;
+          refs.set(obj_key, ref_id);
+          return this.tag(28)}
+
+        else {
+          // existing new reference
+          this.add_mask(0xc0, 29);
+          this.add_int(ref_id);} }
+
+    , shared(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode(value);
+          return end_tag()} }
+
+    , shared_object(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode_object(value);
+          return end_tag()} }
+
+
+    , add_int(v) {
+        if (! Number.isSafeInteger(v)) {
+          throw new TypeError()}
+        if (v > 0) {this.add_mask(0x00, v); }// pos int
+        else if (v < 0) {this.add_mask(0x20, -1 - v); }// neg int
+        else {this.add_w0(0); } }// int zero
 
     , sub_encode(v, opt) {
         // lazy bind sub_encode on first use
@@ -277,71 +320,75 @@
         return fn(v, opt)}
 
     , nest(v, u8_pre) {
-        const end_tag = this.tag(24);
+        let end_tag = this.tag(24);
         this.add_buffer(0x40,
           u8_pre || this.sub_encode(v));
         return end_tag()}
 
     , bytes_stream(iterable) {
-        const {add_w0, add_bytes} = this;
+        let {add_w0, add_bytes} = this;
         add_w0(0x5f); // bytes stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_bytes(v);}
         add_w0(0xff); }// break
 
     , utf8_stream(iterable) {
-        const {add_w0, add_utf8} = this;
+        let {add_w0, add_utf8} = this;
         add_w0(0x7f); // utf8 stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_utf8(v);}
         add_w0(0xff); }// break
 
 
     , array(arr) {
-        const {add_int, encode} = this;
-        const len = arr.length;
-        add_int(0x80, len);
+        let {add_mask, encode} = this;
+        let len = arr.length;
+        add_mask(0x80, len);
 
         for (let i=0; i<len; i++) {
           encode(arr[i]);} }
 
     , list(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0x80, count);
+        let {add_mask, encode} = this;
+        add_mask(0x80, count);
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);
 
           if (0 >= count --) {
             return} } }
 
     , list_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0x9f); // list stream
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);}
 
         add_w0(0xff); }// break
 
 
-    , object_pairs(v) {
-        const {add_int, encode} = this;
-        const ns = Object.entries(v);
-        const count = ns.length;
+    , _object_filter(e) {
+        let t = typeof e[1];
+        return 'function' !== t && 'symbol' !== t}
 
-        add_int(0xa0, count);
+    , object_pairs(v) {
+        let {add_mask, encode} = this;
+        let ns = Object.entries(v).filter(this._object_filter);
+        let count = ns.length;
+
+        add_mask(0xa0, count);
         for (let i=0; i<count; i++) {
-          const e = ns[i];
+          let e = ns[i];
           encode(e[0]);
           encode(e[1]);} }
 
 
     , pairs(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0xa0, count);
+        let {add_mask, encode} = this;
+        add_mask(0xa0, count);
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);
 
@@ -349,14 +396,14 @@
             return} } }
 
     , pair_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);}
 
-        add_w0(0xff); } } }// break
+        add_w0(0xff); } };// break
 
 
 
@@ -371,8 +418,9 @@
     const u8_tip = new Uint8Array(block_size);
     const dv_tip = new DataView(u8_tip.buffer);
 
-    const ctx ={
+    const ctx0 ={
       __proto__: ctx_prototype$2
+
     , raw_frame
 
     , add_w0(bkind) {
@@ -381,7 +429,7 @@
     , add_w1(bkind, v8) {
         u8_tip[ next_frame(bkind, 2) ] = v8;}
 
-    , add_int
+    , add_mask
     , add_bytes
     , add_utf8
     , add_buffer
@@ -396,10 +444,13 @@
         dv_tip.setFloat64(next_frame(0xfb, 9), v); } };
 
 
-    bind_encode_dispatch$2(ctx, cbor_encode);
+    let bind_ctx = bind_encode_dispatch$2(ctx0, cbor_encode);
     return cbor_encode
 
     function cbor_encode(v, opt) {
+      let ctx ={__proto__: ctx0};
+      bind_ctx(ctx);
+
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
@@ -411,14 +462,14 @@
       if (idx_next === 0) {
         return stream.flush(null)}
 
-      const blk = u8_tip.slice(0, idx_next);
+      let blk = u8_tip.slice(0, idx_next);
       idx_frame = idx_next = 0;
       return stream.flush(blk)}
 
 
 
 
-    function add_int(mask, v) {
+    function add_mask(mask, v) {
       if (v <= 0xffff) {
         if (v < 24) {// tiny
           next_frame(mask | v, 1);}
@@ -433,12 +484,12 @@
         dv_tip.setUint32(next_frame(mask | W4$2, 5), v); }
 
       else {
-        const idx = next_frame(mask | W8$2, 9);
+        let idx = next_frame(mask | W8$2, 9);
 
-        const v_hi = (v / 0x100000000) | 0;
+        let v_hi = (v / 0x100000000) | 0;
         dv_tip.setUint32(idx, v_hi);
 
-        const v_lo = v & 0xffffffff;
+        let v_lo = v & 0xffffffff;
         dv_tip.setUint32(4+idx, v_lo);
         return} }
 
@@ -449,7 +500,7 @@
       add_buffer(0x60, utf8_to_u8$2(v)); }
 
     function add_buffer(mask, buf) {
-      add_int(mask, buf.byteLength);
+      add_mask(mask, buf.byteLength);
       raw_frame(buf);}
 
 
@@ -467,7 +518,7 @@
 
 
     function raw_frame(buf) {
-      const len = buf.byteLength;
+      let len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
       if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
@@ -480,7 +531,6 @@
       stream.write(buf); } }
 
 
-
   function u8concat_outstream$2() {
     let blocks = [];
     return {
@@ -491,7 +541,7 @@
 
         if (null !== blk) {
           blocks.push(blk);}
-        const u8 = u8_concat$4(blocks);
+        let u8 = u8_concat$4(blocks);
         blocks = [];
         return u8} } }
 
@@ -781,7 +831,7 @@
 
       return u8 =>({__proto__: self, u8}) } };
 
-  const decode_types$2 ={
+  const decode_types$2 = {
     __proto__: null
 
   , u32(u8, idx) {
@@ -891,7 +941,11 @@
 
   function std_tags$2(tags_lut) {
     basic_tags$2(tags_lut);
-    typedarray_tags$2(tags_lut);}
+
+    // EXTENSIONS
+    ext_js_maps_sets$2(tags_lut);
+    ext_typedarray_tags$2(tags_lut);
+    ext_value_sharing_tags$2(tags_lut);}
 
 
   function basic_tags$2(tags_lut) {
@@ -942,21 +996,10 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {});
+    tags_lut.set(55799, () => {}); }
 
 
-    // EXTENSIONS
-
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$2); });
-
-    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
-    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$2); });
-
-    return tags_lut}
-
-
-  function typedarray_tags$2(tags_lut) {
+  function ext_typedarray_tags$2(tags_lut) {
     // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
     let [i_cpy, i_swp] = is_big_endian$3 ? [1, 2] : [2, 1];
@@ -969,6 +1012,45 @@
 
       tags_lut.set(ta_args[i_cpy], ctx => as_ta);
       tags_lut.set(ta_args[i_swp], ctx => u8 => swap_endian$3(as_ta(u8))); } }
+
+
+  function ext_js_maps_sets$2(tags_lut) {
+    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$2); });
+
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$2); }); }
+
+
+  function ext_value_sharing_tags$2(tags_lut) {
+    // paired tags 28 & 29 -- http://cbor.schmorp.de/value-sharing
+    let sym_ref = Symbol('cbor-shared');
+
+    // Tag 28 (shareable) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(28, ctx => {
+      let refs = _refs_for(ctx);
+      let ref_id = refs.n++;
+
+      // use a promise for self-references; not spec compliant, but reasonable for modern JS
+      let complete;
+      refs.set(ref_id, new Promise(resolve => complete = resolve));
+
+      return v => {
+        refs.set(ref_id, v);
+        complete(v);
+        return v} } );
+
+    // Tag 29 (sharedref) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(29, ctx =>
+      ref_id => _refs_for(ctx).get(ref_id));
+
+    function _refs_for(ctx) {
+      let refs = ctx[sym_ref];
+      if (undefined === refs) {
+        refs = new Map();
+        refs.n = 0;
+        ctx[sym_ref] = refs;}
+      return refs} }
 
   class U8DecodeBaseCtx$2 {
 
@@ -2041,20 +2123,22 @@
   const _obj_kind_$1 = Function.call.bind(Object.prototype.toString);
   // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
 
-  function bind_encode_dispatch$1(ctx, api) {
+  function bind_encode_dispatch$1(ctx0, api) {
+    let active_enc = new WeakSet();
     let simple_map, encode_object, lut_types;
 
-    ctx.encode = encode;
-    ctx.encode_object = v => encode_object(v, ctx);
-
-    // rebind() binds the following: 
+    // rebind() binds the following:
     //   - simple_map, encode_object, lut_types
     //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
     api.rebind = rebind;
-    return
 
-    function rebind(host=ctx.host) {
-      Object.defineProperties(ctx,{
+    return ctx => {
+      ctx.encode = v => encode(v, ctx);
+      ctx.encode_object = v => encode_object(v, ctx);}
+
+    function rebind(host=ctx0.host) {
+      active_enc = new WeakSet();
+      Object.defineProperties(ctx0,{
         host: {value: host}} );
 
       simple_map = host._simple_map;
@@ -2065,7 +2149,7 @@
           lut_types.set(k, fn); } }
 
       if (host.bind_encode_object) {
-        encode_object = host.bind_encode_object(ctx, lut_types);}
+        encode_object = host.bind_encode_object(ctx0, lut_types);}
 
       else if (host.encode_object) {
         encode_object = host.encode_object;}
@@ -2076,8 +2160,7 @@
 
       return api }// as fluent API
 
-
-    function encode(v) {
+    function encode(v, ctx) {
       // Lookup table for well-known values directly to CBOR zero-width encodings
       let ev = lut_fast_w0$1.get(v);
       if (undefined !== ev) {
@@ -2092,7 +2175,12 @@
           return} }
 
       if (undefined !== v.to_cbor_encode) {
-        return v.to_cbor_encode(ctx, v) }// pass through promises
+        if (! active_enc.has(v)) {
+          active_enc.add(v);
+          try {return v.to_cbor_encode(ctx, v)}
+          finally {active_enc.delete(v);} }
+        }// else self-loop -- fall through to default below
+
 
       let encoder = lut_types.get(_obj_kind_$1(v));
       if (undefined !== encoder) {
@@ -2137,11 +2225,11 @@
 
     else if (v > 0) {
       // pos int
-      ctx.add_int(0x00, v);}
+      ctx.add_mask(0x00, v);}
 
     else if (v < 0) {
       // neg int
-      ctx.add_int(0x20, -1 - v);}
+      ctx.add_mask(0x20, -1 - v);}
 
     else if (Object.is(-0, v)) {
       // negative zero; does not play well with identity or Map() lookup
@@ -2171,8 +2259,8 @@
     use_encoder_for$1(lut_types, [], (v, ctx) => {ctx.array(v);} );
     use_encoder_for$1(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    use_encoder_for$1(lut_types, parseInt, (() => {} ) );
-    use_encoder_for$1(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for$1(lut_types, parseInt, (() => {ctx.invalid('function');}));
+    use_encoder_for$1(lut_types, Symbol.iterator, (() => {ctx.invalid('symbol');}));
 
 
      {// ArrayBuffer and friends
@@ -2184,23 +2272,22 @@
 
     return lut_types}
 
-  const W1$1=24, W2$1=25, W4$1=26, W8$1=27; 
+  const W1$1=24, W2$1=25, W4$1=26, W8$1=27;
 
-  const ctx_prototype$1 = bind_ctx_prototype$1();
-
-  function bind_ctx_prototype$1() {
-    return {
+  const ctx_prototype$1 = {
       __proto__: null,
 
       // encode(v) -- installed in bind_encode_dispatch (./jump.jsy)
       // encode_object(v) -- installed in bind_encode_dispatch (./jump.jsy)
 
       // raw_frame,
-      // add_w0, add_w1, add_int,
+      // add_w0, add_w1, add_mask, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      simple(v) {
+      invalid() {this.add_w0(0xf7);}
+
+    , simple(v) {
         // RFC 8949 Simple Values; CBOR Simple Values Registry
         if (v < 24) {
           this.add_w0(0xe0 | v);}
@@ -2209,19 +2296,57 @@
         else throw new Error(`Invalid simple value: ${v}`) }
 
     , tag_encode(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
     , tag_encode_object(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode_object(value);
         return end_tag()}
 
     , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7; }// CBOR tag
-        this.add_int(0xc0, tag);
+        this.add_mask(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+
+    , shared_tag(obj_key) {
+        let refs = this._ref_wm;
+        if (undefined === refs) {
+          (this._ref_wm = refs = new WeakMap()).n=0;}
+
+        let ref_id = refs.get(obj_key);
+        if (undefined === ref_id) {
+          // new reference
+          ref_id = refs.n++;
+          refs.set(obj_key, ref_id);
+          return this.tag(28)}
+
+        else {
+          // existing new reference
+          this.add_mask(0xc0, 29);
+          this.add_int(ref_id);} }
+
+    , shared(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode(value);
+          return end_tag()} }
+
+    , shared_object(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode_object(value);
+          return end_tag()} }
+
+
+    , add_int(v) {
+        if (! Number.isSafeInteger(v)) {
+          throw new TypeError()}
+        if (v > 0) {this.add_mask(0x00, v); }// pos int
+        else if (v < 0) {this.add_mask(0x20, -1 - v); }// neg int
+        else {this.add_w0(0); } }// int zero
 
     , sub_encode(v, opt) {
         // lazy bind sub_encode on first use
@@ -2231,71 +2356,75 @@
         return fn(v, opt)}
 
     , nest(v, u8_pre) {
-        const end_tag = this.tag(24);
+        let end_tag = this.tag(24);
         this.add_buffer(0x40,
           u8_pre || this.sub_encode(v));
         return end_tag()}
 
     , bytes_stream(iterable) {
-        const {add_w0, add_bytes} = this;
+        let {add_w0, add_bytes} = this;
         add_w0(0x5f); // bytes stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_bytes(v);}
         add_w0(0xff); }// break
 
     , utf8_stream(iterable) {
-        const {add_w0, add_utf8} = this;
+        let {add_w0, add_utf8} = this;
         add_w0(0x7f); // utf8 stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_utf8(v);}
         add_w0(0xff); }// break
 
 
     , array(arr) {
-        const {add_int, encode} = this;
-        const len = arr.length;
-        add_int(0x80, len);
+        let {add_mask, encode} = this;
+        let len = arr.length;
+        add_mask(0x80, len);
 
         for (let i=0; i<len; i++) {
           encode(arr[i]);} }
 
     , list(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0x80, count);
+        let {add_mask, encode} = this;
+        add_mask(0x80, count);
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);
 
           if (0 >= count --) {
             return} } }
 
     , list_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0x9f); // list stream
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);}
 
         add_w0(0xff); }// break
 
 
-    , object_pairs(v) {
-        const {add_int, encode} = this;
-        const ns = Object.entries(v);
-        const count = ns.length;
+    , _object_filter(e) {
+        let t = typeof e[1];
+        return 'function' !== t && 'symbol' !== t}
 
-        add_int(0xa0, count);
+    , object_pairs(v) {
+        let {add_mask, encode} = this;
+        let ns = Object.entries(v).filter(this._object_filter);
+        let count = ns.length;
+
+        add_mask(0xa0, count);
         for (let i=0; i<count; i++) {
-          const e = ns[i];
+          let e = ns[i];
           encode(e[0]);
           encode(e[1]);} }
 
 
     , pairs(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0xa0, count);
+        let {add_mask, encode} = this;
+        add_mask(0xa0, count);
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);
 
@@ -2303,14 +2432,14 @@
             return} } }
 
     , pair_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);}
 
-        add_w0(0xff); } } }// break
+        add_w0(0xff); } };// break
 
 
 
@@ -2325,8 +2454,9 @@
     const u8_tip = new Uint8Array(block_size);
     const dv_tip = new DataView(u8_tip.buffer);
 
-    const ctx ={
+    const ctx0 ={
       __proto__: ctx_prototype$1
+
     , raw_frame
 
     , add_w0(bkind) {
@@ -2335,7 +2465,7 @@
     , add_w1(bkind, v8) {
         u8_tip[ next_frame(bkind, 2) ] = v8;}
 
-    , add_int
+    , add_mask
     , add_bytes
     , add_utf8
     , add_buffer
@@ -2350,10 +2480,13 @@
         dv_tip.setFloat64(next_frame(0xfb, 9), v); } };
 
 
-    bind_encode_dispatch$1(ctx, cbor_encode);
+    let bind_ctx = bind_encode_dispatch$1(ctx0, cbor_encode);
     return cbor_encode
 
     function cbor_encode(v, opt) {
+      let ctx ={__proto__: ctx0};
+      bind_ctx(ctx);
+
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
@@ -2365,14 +2498,14 @@
       if (idx_next === 0) {
         return stream.flush(null)}
 
-      const blk = u8_tip.slice(0, idx_next);
+      let blk = u8_tip.slice(0, idx_next);
       idx_frame = idx_next = 0;
       return stream.flush(blk)}
 
 
 
 
-    function add_int(mask, v) {
+    function add_mask(mask, v) {
       if (v <= 0xffff) {
         if (v < 24) {// tiny
           next_frame(mask | v, 1);}
@@ -2387,12 +2520,12 @@
         dv_tip.setUint32(next_frame(mask | W4$1, 5), v); }
 
       else {
-        const idx = next_frame(mask | W8$1, 9);
+        let idx = next_frame(mask | W8$1, 9);
 
-        const v_hi = (v / 0x100000000) | 0;
+        let v_hi = (v / 0x100000000) | 0;
         dv_tip.setUint32(idx, v_hi);
 
-        const v_lo = v & 0xffffffff;
+        let v_lo = v & 0xffffffff;
         dv_tip.setUint32(4+idx, v_lo);
         return} }
 
@@ -2403,7 +2536,7 @@
       add_buffer(0x60, utf8_to_u8$1(v)); }
 
     function add_buffer(mask, buf) {
-      add_int(mask, buf.byteLength);
+      add_mask(mask, buf.byteLength);
       raw_frame(buf);}
 
 
@@ -2421,7 +2554,7 @@
 
 
     function raw_frame(buf) {
-      const len = buf.byteLength;
+      let len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
       if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
@@ -2434,7 +2567,6 @@
       stream.write(buf); } }
 
 
-
   function u8concat_outstream$1() {
     let blocks = [];
     return {
@@ -2445,7 +2577,7 @@
 
         if (null !== blk) {
           blocks.push(blk);}
-        const u8 = u8_concat$2(blocks);
+        let u8 = u8_concat$2(blocks);
         blocks = [];
         return u8} } }
 
@@ -3022,20 +3154,22 @@
   const _obj_kind_ = Function.call.bind(Object.prototype.toString);
   // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
 
-  function bind_encode_dispatch(ctx, api) {
+  function bind_encode_dispatch(ctx0, api) {
+    let active_enc = new WeakSet();
     let simple_map, encode_object, lut_types;
 
-    ctx.encode = encode;
-    ctx.encode_object = v => encode_object(v, ctx);
-
-    // rebind() binds the following: 
+    // rebind() binds the following:
     //   - simple_map, encode_object, lut_types
     //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
     api.rebind = rebind;
-    return
 
-    function rebind(host=ctx.host) {
-      Object.defineProperties(ctx,{
+    return ctx => {
+      ctx.encode = v => encode(v, ctx);
+      ctx.encode_object = v => encode_object(v, ctx);}
+
+    function rebind(host=ctx0.host) {
+      active_enc = new WeakSet();
+      Object.defineProperties(ctx0,{
         host: {value: host}} );
 
       simple_map = host._simple_map;
@@ -3046,7 +3180,7 @@
           lut_types.set(k, fn); } }
 
       if (host.bind_encode_object) {
-        encode_object = host.bind_encode_object(ctx, lut_types);}
+        encode_object = host.bind_encode_object(ctx0, lut_types);}
 
       else if (host.encode_object) {
         encode_object = host.encode_object;}
@@ -3057,8 +3191,7 @@
 
       return api }// as fluent API
 
-
-    function encode(v) {
+    function encode(v, ctx) {
       // Lookup table for well-known values directly to CBOR zero-width encodings
       let ev = lut_fast_w0.get(v);
       if (undefined !== ev) {
@@ -3073,7 +3206,12 @@
           return} }
 
       if (undefined !== v.to_cbor_encode) {
-        return v.to_cbor_encode(ctx, v) }// pass through promises
+        if (! active_enc.has(v)) {
+          active_enc.add(v);
+          try {return v.to_cbor_encode(ctx, v)}
+          finally {active_enc.delete(v);} }
+        }// else self-loop -- fall through to default below
+
 
       let encoder = lut_types.get(_obj_kind_(v));
       if (undefined !== encoder) {
@@ -3118,11 +3256,11 @@
 
     else if (v > 0) {
       // pos int
-      ctx.add_int(0x00, v);}
+      ctx.add_mask(0x00, v);}
 
     else if (v < 0) {
       // neg int
-      ctx.add_int(0x20, -1 - v);}
+      ctx.add_mask(0x20, -1 - v);}
 
     else if (Object.is(-0, v)) {
       // negative zero; does not play well with identity or Map() lookup
@@ -3152,8 +3290,8 @@
     use_encoder_for(lut_types, [], (v, ctx) => {ctx.array(v);} );
     use_encoder_for(lut_types, {}, (v, ctx) => {ctx.object_pairs(v);} );
 
-    use_encoder_for(lut_types, parseInt, (() => {} ) );
-    use_encoder_for(lut_types, Symbol.iterator, (() => {} ) );
+    use_encoder_for(lut_types, parseInt, (() => {ctx.invalid('function');}));
+    use_encoder_for(lut_types, Symbol.iterator, (() => {ctx.invalid('symbol');}));
 
 
      {// ArrayBuffer and friends
@@ -3165,23 +3303,22 @@
 
     return lut_types}
 
-  const W1=24, W2=25, W4=26, W8=27; 
+  const W1=24, W2=25, W4=26, W8=27;
 
-  const ctx_prototype = bind_ctx_prototype();
-
-  function bind_ctx_prototype() {
-    return {
+  const ctx_prototype = {
       __proto__: null,
 
       // encode(v) -- installed in bind_encode_dispatch (./jump.jsy)
       // encode_object(v) -- installed in bind_encode_dispatch (./jump.jsy)
 
       // raw_frame,
-      // add_w0, add_w1, add_int,
+      // add_w0, add_w1, add_mask, add_int,
       // add_bytes, add_utf8, add_buffer,
       // float16_short, float32 float64
 
-      simple(v) {
+      invalid() {this.add_w0(0xf7);}
+
+    , simple(v) {
         // RFC 8949 Simple Values; CBOR Simple Values Registry
         if (v < 24) {
           this.add_w0(0xe0 | v);}
@@ -3190,19 +3327,57 @@
         else throw new Error(`Invalid simple value: ${v}`) }
 
     , tag_encode(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode(value);
         return end_tag()}
 
     , tag_encode_object(tag, value) {
-        const end_tag = this.tag(tag);
+        let end_tag = this.tag(tag);
         this.encode_object(value);
         return end_tag()}
 
     , tag(tag, with_tag) {
         if (true === tag) {tag = 0xd9f7; }// CBOR tag
-        this.add_int(0xc0, tag);
+        this.add_mask(0xc0, tag);
         return with_tag || this.host.with_tag(tag)}
+
+
+    , shared_tag(obj_key) {
+        let refs = this._ref_wm;
+        if (undefined === refs) {
+          (this._ref_wm = refs = new WeakMap()).n=0;}
+
+        let ref_id = refs.get(obj_key);
+        if (undefined === ref_id) {
+          // new reference
+          ref_id = refs.n++;
+          refs.set(obj_key, ref_id);
+          return this.tag(28)}
+
+        else {
+          // existing new reference
+          this.add_mask(0xc0, 29);
+          this.add_int(ref_id);} }
+
+    , shared(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode(value);
+          return end_tag()} }
+
+    , shared_object(obj_key, value=obj_key) {
+        let end_tag = this.shared_tag(obj_key);
+        if (undefined !== end_tag) {
+          this.encode_object(value);
+          return end_tag()} }
+
+
+    , add_int(v) {
+        if (! Number.isSafeInteger(v)) {
+          throw new TypeError()}
+        if (v > 0) {this.add_mask(0x00, v); }// pos int
+        else if (v < 0) {this.add_mask(0x20, -1 - v); }// neg int
+        else {this.add_w0(0); } }// int zero
 
     , sub_encode(v, opt) {
         // lazy bind sub_encode on first use
@@ -3212,71 +3387,75 @@
         return fn(v, opt)}
 
     , nest(v, u8_pre) {
-        const end_tag = this.tag(24);
+        let end_tag = this.tag(24);
         this.add_buffer(0x40,
           u8_pre || this.sub_encode(v));
         return end_tag()}
 
     , bytes_stream(iterable) {
-        const {add_w0, add_bytes} = this;
+        let {add_w0, add_bytes} = this;
         add_w0(0x5f); // bytes stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_bytes(v);}
         add_w0(0xff); }// break
 
     , utf8_stream(iterable) {
-        const {add_w0, add_utf8} = this;
+        let {add_w0, add_utf8} = this;
         add_w0(0x7f); // utf8 stream
-        for (const v of iterable) {
+        for (let v of iterable) {
           add_utf8(v);}
         add_w0(0xff); }// break
 
 
     , array(arr) {
-        const {add_int, encode} = this;
-        const len = arr.length;
-        add_int(0x80, len);
+        let {add_mask, encode} = this;
+        let len = arr.length;
+        add_mask(0x80, len);
 
         for (let i=0; i<len; i++) {
           encode(arr[i]);} }
 
     , list(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0x80, count);
+        let {add_mask, encode} = this;
+        add_mask(0x80, count);
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);
 
           if (0 >= count --) {
             return} } }
 
     , list_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0x9f); // list stream
 
-        for (const v of iterable) {
+        for (let v of iterable) {
           encode(v);}
 
         add_w0(0xff); }// break
 
 
-    , object_pairs(v) {
-        const {add_int, encode} = this;
-        const ns = Object.entries(v);
-        const count = ns.length;
+    , _object_filter(e) {
+        let t = typeof e[1];
+        return 'function' !== t && 'symbol' !== t}
 
-        add_int(0xa0, count);
+    , object_pairs(v) {
+        let {add_mask, encode} = this;
+        let ns = Object.entries(v).filter(this._object_filter);
+        let count = ns.length;
+
+        add_mask(0xa0, count);
         for (let i=0; i<count; i++) {
-          const e = ns[i];
+          let e = ns[i];
           encode(e[0]);
           encode(e[1]);} }
 
 
     , pairs(iterable, count) {
-        const {add_int, encode} = this;
-        add_int(0xa0, count);
+        let {add_mask, encode} = this;
+        add_mask(0xa0, count);
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);
 
@@ -3284,14 +3463,14 @@
             return} } }
 
     , pair_stream(iterable) {
-        const {add_w0, encode} = this;
+        let {add_w0, encode} = this;
         add_w0(0xbf); // map stream
 
-        for (const e of iterable) {
+        for (let e of iterable) {
           encode(e[0]);
           encode(e[1]);}
 
-        add_w0(0xff); } } }// break
+        add_w0(0xff); } };// break
 
 
 
@@ -3306,8 +3485,9 @@
     const u8_tip = new Uint8Array(block_size);
     const dv_tip = new DataView(u8_tip.buffer);
 
-    const ctx ={
+    const ctx0 ={
       __proto__: ctx_prototype
+
     , raw_frame
 
     , add_w0(bkind) {
@@ -3316,7 +3496,7 @@
     , add_w1(bkind, v8) {
         u8_tip[ next_frame(bkind, 2) ] = v8;}
 
-    , add_int
+    , add_mask
     , add_bytes
     , add_utf8
     , add_buffer
@@ -3331,10 +3511,13 @@
         dv_tip.setFloat64(next_frame(0xfb, 9), v); } };
 
 
-    bind_encode_dispatch(ctx, cbor_encode);
+    let bind_ctx = bind_encode_dispatch(ctx0, cbor_encode);
     return cbor_encode
 
     function cbor_encode(v, opt) {
+      let ctx ={__proto__: ctx0};
+      bind_ctx(ctx);
+
       if (undefined === opt || null === opt) {
         ctx.encode(v);}
       else if (true === opt || 'number' === typeof opt) {
@@ -3346,14 +3529,14 @@
       if (idx_next === 0) {
         return stream.flush(null)}
 
-      const blk = u8_tip.slice(0, idx_next);
+      let blk = u8_tip.slice(0, idx_next);
       idx_frame = idx_next = 0;
       return stream.flush(blk)}
 
 
 
 
-    function add_int(mask, v) {
+    function add_mask(mask, v) {
       if (v <= 0xffff) {
         if (v < 24) {// tiny
           next_frame(mask | v, 1);}
@@ -3368,12 +3551,12 @@
         dv_tip.setUint32(next_frame(mask | W4, 5), v); }
 
       else {
-        const idx = next_frame(mask | W8, 9);
+        let idx = next_frame(mask | W8, 9);
 
-        const v_hi = (v / 0x100000000) | 0;
+        let v_hi = (v / 0x100000000) | 0;
         dv_tip.setUint32(idx, v_hi);
 
-        const v_lo = v & 0xffffffff;
+        let v_lo = v & 0xffffffff;
         dv_tip.setUint32(4+idx, v_lo);
         return} }
 
@@ -3384,7 +3567,7 @@
       add_buffer(0x60, utf8_to_u8(v)); }
 
     function add_buffer(mask, buf) {
-      add_int(mask, buf.byteLength);
+      add_mask(mask, buf.byteLength);
       raw_frame(buf);}
 
 
@@ -3402,7 +3585,7 @@
 
 
     function raw_frame(buf) {
-      const len = buf.byteLength;
+      let len = buf.byteLength;
       idx_frame = idx_next; idx_next += len;
       if (idx_next <= block_size) {
         u8_tip.set(buf, idx_frame);
@@ -3415,7 +3598,6 @@
       stream.write(buf); } }
 
 
-
   function u8concat_outstream() {
     let blocks = [];
     return {
@@ -3426,7 +3608,7 @@
 
         if (null !== blk) {
           blocks.push(blk);}
-        const u8 = u8_concat$1(blocks);
+        let u8 = u8_concat$1(blocks);
         blocks = [];
         return u8} } }
 
@@ -3617,7 +3799,7 @@
         this.types, this.jmp, options.unknown);
       return this} }
 
-  const decode_types$1 ={
+  const decode_types$1 = {
     __proto__: null
 
   , u32(u8, idx) {
@@ -3688,7 +3870,11 @@
 
   function std_tags$1(tags_lut) {
     basic_tags$1(tags_lut);
-    typedarray_tags$1(tags_lut);}
+
+    // EXTENSIONS
+    ext_js_maps_sets$1(tags_lut);
+    ext_typedarray_tags$1(tags_lut);
+    ext_value_sharing_tags$1(tags_lut);}
 
 
   function basic_tags$1(tags_lut) {
@@ -3739,21 +3925,10 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {});
+    tags_lut.set(55799, () => {}); }
 
 
-    // EXTENSIONS
-
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$1); });
-
-    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
-    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$1); });
-
-    return tags_lut}
-
-
-  function typedarray_tags$1(tags_lut) {
+  function ext_typedarray_tags$1(tags_lut) {
     // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
     let [i_cpy, i_swp] = is_big_endian$1 ? [1, 2] : [2, 1];
@@ -3766,6 +3941,45 @@
 
       tags_lut.set(ta_args[i_cpy], ctx => as_ta);
       tags_lut.set(ta_args[i_swp], ctx => u8 => swap_endian$1(as_ta(u8))); } }
+
+
+  function ext_js_maps_sets$1(tags_lut) {
+    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set$1); });
+
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map$1); }); }
+
+
+  function ext_value_sharing_tags$1(tags_lut) {
+    // paired tags 28 & 29 -- http://cbor.schmorp.de/value-sharing
+    let sym_ref = Symbol('cbor-shared');
+
+    // Tag 28 (shareable) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(28, ctx => {
+      let refs = _refs_for(ctx);
+      let ref_id = refs.n++;
+
+      // use a promise for self-references; not spec compliant, but reasonable for modern JS
+      let complete;
+      refs.set(ref_id, new Promise(resolve => complete = resolve));
+
+      return v => {
+        refs.set(ref_id, v);
+        complete(v);
+        return v} } );
+
+    // Tag 29 (sharedref) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(29, ctx =>
+      ref_id => _refs_for(ctx).get(ref_id));
+
+    function _refs_for(ctx) {
+      let refs = ctx[sym_ref];
+      if (undefined === refs) {
+        refs = new Map();
+        refs.n = 0;
+        ctx[sym_ref] = refs;}
+      return refs} }
 
   class U8DecodeBaseCtx$1 {
 
@@ -4648,7 +4862,7 @@
 
       return u8 =>({__proto__: self, u8}) } };
 
-  const decode_types ={
+  const decode_types = {
     __proto__: null
 
   , u32(u8, idx) {
@@ -4758,7 +4972,11 @@
 
   function std_tags(tags_lut) {
     basic_tags(tags_lut);
-    typedarray_tags(tags_lut);}
+
+    // EXTENSIONS
+    ext_js_maps_sets(tags_lut);
+    ext_typedarray_tags(tags_lut);
+    ext_value_sharing_tags(tags_lut);}
 
 
   function basic_tags(tags_lut) {
@@ -4809,21 +5027,10 @@
     //tags_lut.set @ 36, () => v => v
 
     // Self-describe CBOR; see Section 2.4.5
-    tags_lut.set(55799, () => {});
+    tags_lut.set(55799, () => {}); }
 
 
-    // EXTENSIONS
-
-    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set); });
-
-    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
-    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); });
-
-    return tags_lut}
-
-
-  function typedarray_tags(tags_lut) {
+  function ext_typedarray_tags(tags_lut) {
     // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
     let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1];
@@ -4836,6 +5043,45 @@
 
       tags_lut.set(ta_args[i_cpy], ctx => as_ta);
       tags_lut.set(ta_args[i_swp], ctx => u8 => swap_endian(as_ta(u8))); } }
+
+
+  function ext_js_maps_sets(tags_lut) {
+    // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+    tags_lut.set(258, ctx => { ctx.use_overlay(decode_Set); });
+
+    // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+    tags_lut.set(259, ctx => { ctx.use_overlay(decode_Map); }); }
+
+
+  function ext_value_sharing_tags(tags_lut) {
+    // paired tags 28 & 29 -- http://cbor.schmorp.de/value-sharing
+    let sym_ref = Symbol('cbor-shared');
+
+    // Tag 28 (shareable) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(28, ctx => {
+      let refs = _refs_for(ctx);
+      let ref_id = refs.n++;
+
+      // use a promise for self-references; not spec compliant, but reasonable for modern JS
+      let complete;
+      refs.set(ref_id, new Promise(resolve => complete = resolve));
+
+      return v => {
+        refs.set(ref_id, v);
+        complete(v);
+        return v} } );
+
+    // Tag 29 (sharedref) -- http://cbor.schmorp.de/value-sharing
+    tags_lut.set(29, ctx =>
+      ref_id => _refs_for(ctx).get(ref_id));
+
+    function _refs_for(ctx) {
+      let refs = ctx[sym_ref];
+      if (undefined === refs) {
+        refs = new Map();
+        refs.n = 0;
+        ctx[sym_ref] = refs;}
+      return refs} }
 
   class U8DecodeBaseCtx {
 

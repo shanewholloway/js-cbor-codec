@@ -33,6 +33,13 @@ export default [
       { file: `cjs/leveldb.cjs`, format: 'cjs', exports:'default', sourcemap: true },
       { file: `esm/leveldb.mjs`, format: 'es', sourcemap: true },
   ]},
+
+  // unit test outputs
+  { input: `./test/unittest.jsy`, plugins, external,
+    output: { file: './test/dist/mocha_unittest.cjs.js', format: 'cjs', sourcemap: false } },
+
+  { input: `./test/unittest.jsy`, context: 'window', plugins, external,
+    output: { file: './test/dist/browser_unittest.iife.js', format: 'iife', name: `test_cbor_codec`, sourcemap: false } },
 ]
 
 

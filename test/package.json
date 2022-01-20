@@ -14,12 +14,9 @@
     "rollup-plugin-jsy": "^1.7.2"
   },
   "scripts": {
-    "clean": "rm ./mocha_unittest.cjs.js browser_unittest.iife.js",
-    "build": "rollup --config",
-    "watch": "rollup --config --watch",
-    "pretest": "npm -s run build",
+    "clean": "rm ./dist/*",
     "test": "npm -s run test:one",
-    "test:one": "mocha ./mocha_unittest.cjs.js",
-    "test:min": "mocha --reporter=min ./mocha_unittest.cjs.js"
+    "test:one": "mocha ./dist/mocha_unittest.cjs.js",
+    "test:min": "mocha --reporter=min ./dist/mocha_unittest.cjs.js"
   }
 }
