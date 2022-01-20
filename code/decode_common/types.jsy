@@ -1,7 +1,7 @@
 import { u8_to_utf8, u8_concat } from '../u8_utils.jsy'
 import { cbor_accum } from '../sym_cbor.jsy'
 
-export const decode_types = @{}
+export const decode_types = /* #__PURE__ */ @{}
   __proto__: null
 
   u32(u8, idx) ::

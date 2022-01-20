@@ -16,7 +16,11 @@ export const decode_Set = @{}
 
 export function std_tags(tags_lut) ::
   basic_tags(tags_lut)
-  typedarray_tags(tags_lut)
+
+  // EXTENSIONS
+  ext_js_maps_sets(tags_lut)
+  ext_typedarray_tags(tags_lut)
+  ext_value_sharing_tags(tags_lut)
 
 
 export function basic_tags(tags_lut) ::
@@ -70,18 +74,7 @@ export function basic_tags(tags_lut) ::
   tags_lut.set @ 55799, () => {}
 
 
-  // EXTENSIONS
-
-  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
-  tags_lut.set @ 258, ctx => { ctx.use_overlay(decode_Set) }
-
-  // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
-  tags_lut.set @ 259, ctx => { ctx.use_overlay(decode_Map) }
-
-  return tags_lut
-
-
-export function typedarray_tags(tags_lut) ::
+export function ext_typedarray_tags(tags_lut) ::
   // for RFC 8746: CBOR Tags for Typed Arrays (https://www.rfc-editor.org/rfc/rfc8746.html)
 
   let [i_cpy, i_swp] = is_big_endian ? [1, 2] : [2, 1]
@@ -94,4 +87,43 @@ export function typedarray_tags(tags_lut) ::
 
     tags_lut.set @ ta_args[i_cpy], ctx => as_ta
     tags_lut.set @ ta_args[i_swp], ctx => u8 => swap_endian @ as_ta(u8)
+
+
+export function ext_js_maps_sets(tags_lut) ::
+  // CBOR Sets https://github.com/input-output-hk/cbor-sets-spec/blob/master/CBOR_SETS.md
+  tags_lut.set @ 258, ctx => { ctx.use_overlay(decode_Set) }
+
+  // CBOR Maps https://github.com/shanewholloway/js-cbor-codec/blob/master/docs/CBOR-256-spec--explicit-maps.md
+  tags_lut.set @ 259, ctx => { ctx.use_overlay(decode_Map) }
+
+
+export function ext_value_sharing_tags(tags_lut) ::
+  // paired tags 28 & 29 -- http://cbor.schmorp.de/value-sharing
+  let sym_ref = Symbol('cbor-shared')
+
+  // Tag 28 (shareable) -- http://cbor.schmorp.de/value-sharing
+  tags_lut.set @ 28, ctx => ::
+    let refs = _refs_for(ctx)
+    let ref_id = refs.n++
+
+    // use a promise for self-references; not spec compliant, but reasonable for modern JS
+    let complete
+    refs.set(ref_id, new Promise(resolve => complete = resolve))
+
+    return v => ::
+      refs.set(ref_id, v)
+      complete(v)
+      return v
+
+  // Tag 29 (sharedref) -- http://cbor.schmorp.de/value-sharing
+  tags_lut.set @ 29, ctx =>
+    ref_id => _refs_for(ctx).get(ref_id)
+
+  function _refs_for(ctx) ::
+    let refs = ctx[sym_ref]
+    if undefined === refs ::
+      refs = new Map()
+      refs.n = 0
+      ctx[sym_ref] = refs
+    return refs
 
