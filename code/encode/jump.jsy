@@ -3,18 +3,20 @@ const _obj_kind_ = Function.call.bind @ Object.prototype.toString
 // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
 
 export function bind_encode_dispatch(ctx, api) ::
+  let active_enc = new WeakSet()
   let simple_map, encode_object, lut_types
 
   ctx.encode = encode
   ctx.encode_object = v => encode_object(v, ctx)
 
-  // rebind() binds the following: 
+  // rebind() binds the following:
   //   - simple_map, encode_object, lut_types
   //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
   api.rebind = rebind
   return
 
   function rebind(host=ctx.host) ::
+    active_enc = new WeakSet()
     Object.defineProperties @ ctx, @{}
       host: {value: host}
 
@@ -53,7 +55,12 @@ export function bind_encode_dispatch(ctx, api) ::
         return
 
     if undefined !== v.to_cbor_encode ::
-      return v.to_cbor_encode(ctx, v) // pass through promises
+      if ! active_enc.has(v) ::
+        active_enc.add(v)
+        try :: return v.to_cbor_encode(ctx, v)
+        finally :: active_enc.delete(v)
+      // else self-loop -- fall through to default below
+
 
     let encoder = lut_types.get @ _obj_kind_(v)
     if undefined !== encoder ::
