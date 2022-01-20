@@ -39,6 +39,34 @@ const ctx_prototype = /* #__PURE__ */ @{}
       this.add_mask(0xc0, tag)
       return with_tag || this.host.with_tag(tag)
 
+
+    shared_tag(obj_key) ::
+      let refs = this._ref_wm
+      let ref_id = refs.get(obj_key)
+      if undefined === ref_id ::
+        // new reference
+        ref_id = refs.n++
+        refs.set(obj_key, ref_id)
+        return this.tag(28)
+
+      else ::
+        // existing new reference
+        this.add_mask(0xc0, 29)
+        this.add_int(ref_id)
+
+    shared(obj_key, value=obj_key) ::
+      let end_tag = this.shared_tag(obj_key)
+      if undefined !== end_tag ::
+        this.encode(value)
+        return end_tag()
+
+    shared_object(obj_key, value=obj_key) ::
+      let end_tag = this.shared_tag(obj_key)
+      if undefined !== end_tag ::
+        this.encode_object(value)
+        return end_tag()
+
+
     add_int(v) ::
       if ! Number.isSafeInteger(v) ::
         throw new TypeError()
@@ -182,6 +210,9 @@ export function bind_encoder_context(stream) ::
   return cbor_encode
 
   function cbor_encode(v, opt) ::
+    // reset shim for shared references (hack)
+    ;(ctx._ref_wm = new WeakMap()).n=0
+
     if undefined === opt || null === opt ::
       ctx.encode(v)
     else if true === opt || 'number' === typeof opt ::
