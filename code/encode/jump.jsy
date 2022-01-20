@@ -2,22 +2,22 @@
 const _obj_kind_ = Function.call.bind @ Object.prototype.toString
 // Like _obj_kind_ = (v) => ({}).toString.call(v) // but using precompiled attribute lookup and zero object allocations
 
-export function bind_encode_dispatch(ctx, api) ::
+export function bind_encode_dispatch(ctx0, api) ::
   let active_enc = new WeakSet()
   let simple_map, encode_object, lut_types
-
-  ctx.encode = encode
-  ctx.encode_object = v => encode_object(v, ctx)
 
   // rebind() binds the following:
   //   - simple_map, encode_object, lut_types
   //   - '[object Object]' via lut_types.set @ _obj_kind_({}), encode_object
   api.rebind = rebind
-  return
 
-  function rebind(host=ctx.host) ::
+  return ctx => ::
+    ctx.encode = v => encode(v, ctx)
+    ctx.encode_object = v => encode_object(v, ctx)
+
+  function rebind(host=ctx0.host) ::
     active_enc = new WeakSet()
-    Object.defineProperties @ ctx, @{}
+    Object.defineProperties @ ctx0, @{}
       host: {value: host}
 
     simple_map = host._simple_map
@@ -28,7 +28,7 @@ export function bind_encode_dispatch(ctx, api) ::
         lut_types.set @ k, fn
 
     if host.bind_encode_object ::
-      encode_object = host.bind_encode_object(ctx, lut_types)
+      encode_object = host.bind_encode_object(ctx0, lut_types)
 
     else if host.encode_object ::
       encode_object = host.encode_object
@@ -39,8 +39,7 @@ export function bind_encode_dispatch(ctx, api) ::
 
     return api // as fluent API
 
-
-  function encode(v) ::
+  function encode(v, ctx) ::
     // Lookup table for well-known values directly to CBOR zero-width encodings
     let ev = lut_fast_w0.get(v)
     if undefined !== ev ::

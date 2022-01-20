@@ -42,6 +42,9 @@ const ctx_prototype = /* #__PURE__ */ @{}
 
     shared_tag(obj_key) ::
       let refs = this._ref_wm
+      if undefined === refs ::
+        (this._ref_wm = refs = new WeakMap()).n=0
+
       let ref_id = refs.get(obj_key)
       if undefined === ref_id ::
         // new reference
@@ -180,7 +183,7 @@ export function bind_encoder_context(stream) ::
   const u8_tip = new Uint8Array(block_size)
   const dv_tip = new DataView(u8_tip.buffer)
 
-  const ctx = @{}
+  const ctx0 = @{}
     __proto__: ctx_prototype
 
     raw_frame
@@ -206,12 +209,12 @@ export function bind_encoder_context(stream) ::
       dv_tip.setFloat64 @ next_frame(0xfb, 9), v
 
 
-  bind_encode_dispatch(ctx, cbor_encode)
+  let bind_ctx = bind_encode_dispatch(ctx0, cbor_encode)
   return cbor_encode
 
   function cbor_encode(v, opt) ::
-    // reset shim for shared references (hack)
-    ;(ctx._ref_wm = new WeakMap()).n=0
+    let ctx = @{} __proto__: ctx0
+    bind_ctx(ctx)
 
     if undefined === opt || null === opt ::
       ctx.encode(v)
