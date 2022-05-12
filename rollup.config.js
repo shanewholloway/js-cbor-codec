@@ -12,7 +12,8 @@ const plugins = [
   rpi_jsy(),
   rpi_resolve({main: true, modules: true}),
 ]
-const plugins_min = [...plugins, rpi_terser({}) ]
+let is_watch = process.argv.includes('--watch')
+const plugins_min = !is_watch && [...plugins, rpi_terser({}) ]
 
 export default [
 

@@ -83,6 +83,16 @@ describe @ 'Encode CBOR Tags', @=> ::
     assert.ok @ rt instanceof Date, 'Not a Date instance'
     assert.equal @ +v, +rt
 
+  it @ 'Tag 1 -- Epoch-based date/time using now; see Section 2.4.1', @=> ::
+    const ts = new Date()
+    const u8 = CBOREncoder.encode @:
+      ts, vec: [ts]
+
+    const rt = CBORDecoder.decode(u8)
+    assert.ok @ rt.ts instanceof Date, 'Not a Date instance'
+    assert.equal @ +ts, +rt.ts
+    assert.equal @ +ts, +rt.vec[0]
+
   it @ 'Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', @=> ::
     const v = cbor_nest.from('IETF')
     const u8 = CBOREncoder.encode(v)

@@ -1564,6 +1564,16 @@
       assert$9.ok(rt instanceof Date, 'Not a Date instance');
       assert$9.equal(+v, +rt); } ) );
 
+    it('Tag 1 -- Epoch-based date/time using now; see Section 2.4.1', (() => {
+      const ts = new Date();
+      const u8 = CBOREncoder$2.encode({
+        ts, vec: [ts]});
+
+      const rt = CBORDecoder$2.decode(u8);
+      assert$9.ok(rt.ts instanceof Date, 'Not a Date instance');
+      assert$9.equal(+ts, +rt.ts);
+      assert$9.equal(+ts, +rt.vec[0]); } ) );
+
     it('Tag 24 -- Encoded CBOR data item; see Section 2.4.4.1', (() => {
       const v = cbor_nest$3.from('IETF');
       const u8 = CBOREncoder$2.encode(v);
