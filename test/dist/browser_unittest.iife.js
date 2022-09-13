@@ -58,16 +58,12 @@
           .then(m => m.randomFillSync);
 
   function as_u8_buffer$4(u8) {
-    
-
-
-
-    if (u8 instanceof Uint8Array) {
+    if (Uint8Array === u8.constructor) {
       return u8}
+    if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+      return new Uint8Array(u8)}
     if (ArrayBuffer.isView(u8)) {
       return new Uint8Array(u8.buffer)}
-    if (u8 instanceof ArrayBuffer) {
-      return new Uint8Array(u8)}
     return Uint8Array.from(u8)}
 
   function u8_concat$4(parts) {
@@ -766,16 +762,12 @@
           .then(m => m.randomFillSync);
 
   function as_u8_buffer$3(u8) {
-    
-
-
-
-    if (u8 instanceof Uint8Array) {
+    if (Uint8Array === u8.constructor) {
       return u8}
+    if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+      return new Uint8Array(u8)}
     if (ArrayBuffer.isView(u8)) {
       return new Uint8Array(u8.buffer)}
-    if (u8 instanceof ArrayBuffer) {
-      return new Uint8Array(u8)}
     return Uint8Array.from(u8)}
 
   function u8_concat$3(parts) {
@@ -2104,16 +2096,12 @@
           .then(m => m.randomFillSync);
 
   function as_u8_buffer$2(u8) {
-    
-
-
-
-    if (u8 instanceof Uint8Array) {
+    if (Uint8Array === u8.constructor) {
       return u8}
+    if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+      return new Uint8Array(u8)}
     if (ArrayBuffer.isView(u8)) {
       return new Uint8Array(u8.buffer)}
-    if (u8 instanceof ArrayBuffer) {
-      return new Uint8Array(u8)}
     return Uint8Array.from(u8)}
 
   function u8_concat$2(parts) {
@@ -3132,16 +3120,12 @@
           .then(m => m.randomFillSync);
 
   function as_u8_buffer$1(u8) {
-    
-
-
-
-    if (u8 instanceof Uint8Array) {
+    if (Uint8Array === u8.constructor) {
       return u8}
+    if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+      return new Uint8Array(u8)}
     if (ArrayBuffer.isView(u8)) {
       return new Uint8Array(u8.buffer)}
-    if (u8 instanceof ArrayBuffer) {
-      return new Uint8Array(u8)}
     return Uint8Array.from(u8)}
 
   function u8_concat$1(parts) {
@@ -4804,16 +4788,12 @@
           .then(m => m.randomFillSync);
 
   function as_u8_buffer(u8) {
-    
-
-
-
-    if (u8 instanceof Uint8Array) {
+    if (Uint8Array === u8.constructor) {
       return u8}
+    if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+      return new Uint8Array(u8)}
     if (ArrayBuffer.isView(u8)) {
       return new Uint8Array(u8.buffer)}
-    if (u8 instanceof ArrayBuffer) {
-      return new Uint8Array(u8)}
     return Uint8Array.from(u8)}
 
   function u8_concat(parts) {

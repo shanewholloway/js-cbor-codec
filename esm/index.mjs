@@ -86,16 +86,12 @@ function utf8_to_u8(utf8) {
         .then(m => m.randomFillSync);
 
 function as_u8_buffer(u8) {
-  
-
-
-
-  if (u8 instanceof Uint8Array) {
+  if (Uint8Array === u8.constructor) {
     return u8}
+  if (u8.readInt8 || u8 instanceof ArrayBuffer) {
+    return new Uint8Array(u8)}
   if (ArrayBuffer.isView(u8)) {
     return new Uint8Array(u8.buffer)}
-  if (u8 instanceof ArrayBuffer) {
-    return new Uint8Array(u8)}
   return Uint8Array.from(u8)}
 
 function u8_concat(parts) {
